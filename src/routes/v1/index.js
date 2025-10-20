@@ -2,6 +2,8 @@ const express = require('express');
 const authRoute = require('./auth.route');
 const holidayRoute = require('./holiday.route');
 const categoryRoute = require('./category.route');
+const questionRoute = require('./question.route');
+const blogsRoute = require('./blogs.route');
 
 const router = express.Router();
 
@@ -17,6 +19,14 @@ const defaultRoutes = [
   {
     path: '/category', 
     route: categoryRoute,
+  },
+  {
+    path: '/question', 
+    route: questionRoute,
+  },
+  {
+    path: '/blogs', 
+    route: blogsRoute,
   },
 ];
 
