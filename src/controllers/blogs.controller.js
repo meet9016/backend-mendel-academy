@@ -12,7 +12,7 @@ const createBlogs = {
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
-            image: Joi.string(),
+            // image: Joi.string().allow(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
         }),
     },
@@ -39,6 +39,27 @@ const getAllBlogs = {
         res.send(blogs);
     }
 }
+
+const getBlogById = {
+
+    handler: async (req, res) => {
+        try {
+            const { _id } = req.params;
+
+            // 🔍 Find blog by MongoDB ID
+            const blog = await Blogs.findById(_id);
+
+            if (!blog) {
+                return res.status(404).json({ message: "Blog not found" });
+            }
+
+            res.status(200).json(blog);
+        } catch (error) {
+            console.error("Error fetching blog by ID:", error);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    }
+};
 
 const updateBlogs = {
     validation: {
@@ -95,6 +116,7 @@ const deleteBlogs = {
 module.exports = {
     createBlogs,
     getAllBlogs,
+    getBlogById,
     updateBlogs,
     deleteBlogs
 };

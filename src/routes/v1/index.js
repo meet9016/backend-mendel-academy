@@ -4,6 +4,8 @@ const holidayRoute = require('./holiday.route');
 const categoryRoute = require('./category.route');
 const questionRoute = require('./question.route');
 const blogsRoute = require('./blogs.route');
+const preRoute = require('./prerecorded.route');
+const liveRoute = require('./livecourses.route');
 
 const router = express.Router();
 
@@ -27,6 +29,14 @@ const defaultRoutes = [
   {
     path: '/blogs', 
     route: blogsRoute,
+  },
+  {
+    path: '/prerecorded', 
+    route: preRoute,
+  },
+   {
+    path: '/livecourses', 
+    route: liveRoute,
   },
 ];
 

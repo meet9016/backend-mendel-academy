@@ -63,7 +63,7 @@
     "joi": "^17.3.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
-    "mongoose": "^8.19.1",
+    "mongoose": "^8.19.2",
     "morgan": "^1.9.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.3.1",

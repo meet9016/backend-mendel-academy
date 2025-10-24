@@ -37,6 +37,27 @@ const getAllQuestion = {
   }
 }
 
+const getLiveCoursesById = {
+
+    handler: async (req, res) => {
+        try {
+            const { _id } = req.params;
+
+            // 🔍 Find blog by MongoDB ID
+            const pre_recorded = await Question.findById(_id);
+
+            if (!pre_recorded) {
+                return res.status(404).json({ message: "Question not found" });
+            }
+
+            res.status(200).json(pre_recorded);
+        } catch (error) {
+            console.error("Error fetching blog by ID:", error);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    }
+};
+
 const updateQuestion = {
   validation: {
     body: Joi.object().keys({
@@ -89,6 +110,7 @@ const deleteQuestion = {
 module.exports = {
   createQuestion,
   getAllQuestion,
+  getLiveCoursesById,
   updateQuestion,
   deleteQuestion
 };
