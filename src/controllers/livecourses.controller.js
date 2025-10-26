@@ -48,7 +48,7 @@ const getLiveCoursesById = {
             const pre_recorded = await LiveCourses.findById(_id);
 
             if (!pre_recorded) {
-                return res.status(404).json({ message: "PreRecorded not found" });
+                return res.status(404).json({ message: "LiveCourses not found" });
             }
 
             res.status(200).json(pre_recorded);
@@ -62,7 +62,7 @@ const getLiveCoursesById = {
 const updateLiveCourses = {
     validation: {
         body: Joi.object().keys({
-               course_title: Joi.string().trim().required(),
+            course_title: Joi.string().trim().required(),
             date: Joi.date(),
             instructor_name: Joi.string().trim().required(),
             status: Joi.string().valid('Active', 'Inactive').optional(),

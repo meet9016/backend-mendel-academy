@@ -69,7 +69,7 @@ const updateBlogs = {
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
-            image: Joi.string(),
+            // image: Joi.string(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
         }),
     },
