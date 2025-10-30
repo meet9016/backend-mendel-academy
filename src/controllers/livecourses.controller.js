@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const { LiveCourses } = require('../models');
+const { handlePagination } = require('../utils/helper');
 
 
 const createLiveCourses = {
@@ -33,8 +34,14 @@ const createLiveCourses = {
 
 const getAllLiveCourses = {
     handler: async (req, res) => {
-        const pre_recorded = await LiveCourses.find();
-        res.send(pre_recorded);
+        const { status, search } = req.query;
+
+        const query = {};
+
+        if (status) query.status = status;
+        if (search) query.title = { $regex: search, $options: "i" };
+
+        await handlePagination(LiveCourses, req, res, query);
     }
 }
 

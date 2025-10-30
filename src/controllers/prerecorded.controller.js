@@ -2,13 +2,18 @@ const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const { PreRecord } = require('../models');
+const { handlePagination } = require('../utils/helper');
 
 
 const createPreRecorded = {
     validation: {
         body: Joi.object().keys({
             title: Joi.string().trim().required(),
+            category: Joi.string(),
+            total_reviews: Joi.number(),
+            subtitle: Joi.string(),
             vimeo_video_id: Joi.string().trim().required(),
+            rating: Joi.number(),
             price: Joi.string().trim().required(),
             duration: Joi.string().trim().required(),
             description: Joi.string().trim().required(),
@@ -34,8 +39,14 @@ const createPreRecorded = {
 
 const getAllPreRecorded = {
     handler: async (req, res) => {
-        const pre_recorded = await PreRecord.find();
-        res.send(pre_recorded);
+        const { status, search } = req.query;
+
+        const query = {};
+
+        if (status) query.status = status;
+        if (search) query.title = { $regex: search, $options: "i" };
+
+        await handlePagination(PreRecord, req, res, query);
     }
 }
 
@@ -63,8 +74,12 @@ const getPreRecordedById = {
 const updatePreRecorded = {
     validation: {
         body: Joi.object().keys({
-            title: Joi.string().trim().required(),
+          title: Joi.string().trim().required(),
+            category: Joi.string(),
+            total_reviews: Joi.number(),
+            subtitle: Joi.string(),
             vimeo_video_id: Joi.string().trim().required(),
+            rating: Joi.number(),
             price: Joi.string().trim().required(),
             duration: Joi.string().trim().required(),
             description: Joi.string().trim().required(),

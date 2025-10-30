@@ -7,18 +7,37 @@ const questionSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    tag:{
+      type: String,
+      required: true,
+    },
+    rating: {
+      type: Number,
+      // required: true,
+    },
+    total_reviews: {
+      type: Number,
+      // required: true,
+    },
+    features: {
+      type: [String],
+      // required: true,
+    },
+    sort_description: {
+      type: String,
+      // required: true,
+    },
     description: {
       type: String,
-      required: true,
+      // required: true,
     },
     price: {
-      type: Number,
-      required: true,
+      type: Number
     },
-    duration: {
-      type: String,
-      required: true,
-    },
+    // duration: {
+    //   type: String,
+    //   required: true,
+    // },
   },
   {
     timestamps: true,

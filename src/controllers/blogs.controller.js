@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const { Blogs } = require('../models');
+const { handlePagination } = require('../utils/helper');
 
 
 const createBlogs = {
@@ -32,13 +33,26 @@ const createBlogs = {
     }
 }
 
-const getAllBlogs = {
+// const getAllBlogs = {
 
-    handler: async (req, res) => {
-        const blogs = await Blogs.find();
-        res.send(blogs);
-    }
-}
+//     handler: async (req, res) => {
+//         const blogs = await Blogs.find();
+//         res.send(blogs);
+//     }
+// }
+
+const getAllBlogs = {
+  handler: async (req, res) => {
+    const { status, search } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+    if (search) query.title = { $regex: search, $options: "i" };
+
+    await handlePagination(Blogs, req, res, query);
+  },
+};
+
 
 const getBlogById = {
 

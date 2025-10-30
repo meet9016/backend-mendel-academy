@@ -37,8 +37,38 @@ const removeFile = (file_name) => {
     })
 }
 
+const handlePagination = async (Model, req, res, query = {}, sort = { createdAt: -1 }) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = req.query.limit ? parseInt(req.query.limit) : null;
+        const skip = limit ? (page - 1) * limit : 0;
+
+        const total = await Model.countDocuments(query);
+
+        let dataQuery = Model.find(query).sort(sort);
+
+        if (limit) {
+            dataQuery = dataQuery.skip(skip).limit(limit);
+        }
+
+        const data = await dataQuery;
+
+        res.status(200).json({
+            success: true,
+            total,
+            page: limit ? page : 1,
+            limit: limit || total,
+            totalPages: limit ? Math.ceil(total / limit) : 1,
+            data,
+        });
+    } catch (error) {
+        console.error("Pagination error:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
 
 module.exports = {
     saveFile,
-    removeFile
+    removeFile,
+    handlePagination
 }

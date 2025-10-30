@@ -7,15 +7,31 @@ const preRecordedSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    category: {
+      type: String,
+      // required: true,
+    },
+    total_reviews: {
+      type: Number,
+      // required: true,  
+    },
+    subtitle: {
+      type: String,
+      // required: true,
+    },
     vimeo_video_id: {
       type: String,
       required: true,
+    },
+    rating: {
+      type: Number,
+      // required: true,
     },
     price: {
       type: Number,
       required: true,
     },
-     duration: {
+    duration: {
       type: String,
       required: true,
     },

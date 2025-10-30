@@ -2,15 +2,20 @@ const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const { Question } = require('../models');
+const { handlePagination } = require('../utils/helper');
 
 
 const createQuestion = {
   validation: {
     body: Joi.object().keys({
       title: Joi.string().trim().required(),
-      description: Joi.string().allow('').required(),
-      price: Joi.allow(''),
-      duration: Joi.string().allow('').required(),
+      tag: Joi.string().required(),
+      rating: Joi.number(),
+      total_reviews: Joi.number(),
+      features: Joi.array().items(Joi.string()),
+      sort_description: Joi.string().allow(''),
+      description: Joi.string().allow(''),
+      price: Joi.number()
     }),
   },
   handler: async (req, res) => {
@@ -30,41 +35,50 @@ const createQuestion = {
 }
 
 const getAllQuestion = {
-
   handler: async (req, res) => {
-    const question = await Question.find();
-    res.send(question);
+    const { status, search } = req.query;
+
+    const query = {};
+
+    if (status) query.status = status;
+    if (search) query.title = { $regex: search, $options: "i" };
+
+    await handlePagination(Question, req, res, query);
   }
 }
 
 const getLiveCoursesById = {
 
-    handler: async (req, res) => {
-        try {
-            const { _id } = req.params;
+  handler: async (req, res) => {
+    try {
+      const { _id } = req.params;
 
-            // 🔍 Find blog by MongoDB ID
-            const pre_recorded = await Question.findById(_id);
+      // 🔍 Find blog by MongoDB ID
+      const pre_recorded = await Question.findById(_id);
 
-            if (!pre_recorded) {
-                return res.status(404).json({ message: "Question not found" });
-            }
+      if (!pre_recorded) {
+        return res.status(404).json({ message: "Question not found" });
+      }
 
-            res.status(200).json(pre_recorded);
-        } catch (error) {
-            console.error("Error fetching blog by ID:", error);
-            res.status(500).json({ message: "Internal Server Error" });
-        }
+      res.status(200).json(pre_recorded);
+    } catch (error) {
+      console.error("Error fetching blog by ID:", error);
+      res.status(500).json({ message: "Internal Server Error" });
     }
+  }
 };
 
 const updateQuestion = {
   validation: {
     body: Joi.object().keys({
       title: Joi.string().trim().required(),
-      description: Joi.string().allow('').required(),
-      price: Joi.allow(''),
-      duration: Joi.string().allow('').required()
+      tag: Joi.string().required(),
+      rating: Joi.number(),
+      total_reviews: Joi.number(),
+      features: Joi.array().items(Joi.string()),
+      sort_description: Joi.string().allow(''),
+      description: Joi.string().allow(''),
+      price: Joi.number()
     }),
   },
   handler: async (req, res) => {

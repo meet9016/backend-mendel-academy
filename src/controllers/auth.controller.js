@@ -8,24 +8,44 @@ const { default: User } = require('../models/user.model');
 const register = {
   validation: {
     body: Joi.object().keys({
-      name: Joi.string().required(),
+      first_name: Joi.string().required(),
+      last_name: Joi.string().required(),
       email: Joi.string().required().email(),
       // password: Joi.string().required().custom(password),
       password: Joi.string().required(),
     }),
   },
-  handler: async (req, res) => {
-    // check if email is already registered
-    const user = await User.findOne({ email: req.body.email });    
+ handler: async (req, res) => {
+  try {
+    // Check if user already exists
+    const user = await User.findOne({ email: req.body.email });
     if (user) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'User already registered');
     }
 
-    // create user
-    const newUser = await new User(req.body).save(); 
+    // Create new user
+    const newUser = await new User(req.body).save();
+
+    // Generate auth tokens
     const token = await tokenService.generateAuthTokens(newUser);
-    return res.status(httpStatus.CREATED).send({ token, user: newUser });
+
+    // Send success response
+    return res.status(httpStatus.CREATED).send({
+      success: true,
+      message: 'User registered successfully',
+      user: newUser,
+      token,
+    });
+  } catch (error) {
+    return res
+      .status(error.statusCode || httpStatus.INTERNAL_SERVER_ERROR)
+      .send({
+        success: false,
+        message: error.message || 'Registration failed',
+      });
   }
+}
+
 };
 
 const login = {
