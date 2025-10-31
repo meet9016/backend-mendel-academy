@@ -4,7 +4,6 @@ const Joi = require('joi');
 const { Blogs } = require('../models');
 const { handlePagination } = require('../utils/helper');
 
-
 const createBlogs = {
     validation: {
         body: Joi.object().keys({
@@ -13,24 +12,41 @@ const createBlogs = {
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
-            // image: Joi.string().allow(),
+            image: Joi.string().allow(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
         }),
     },
     handler: async (req, res) => {
+        try {
+            const { exam_name } = req.body;
+           
+            // Check if blog exists
+            const blogsExist = await Blogs.findOne({ exam_name });
+           
+            if (blogsExist) {
+                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog already exists' });
+            }
 
-        const { exam_name } = req.body;
+            // Build image URL if file uploaded
+            const baseUrl = req.protocol + "://" + req.get("host");
+            const imageUrl = req.file?.filename
+                ? `${baseUrl}/uploads/${req.file.filename}`
+                : "";
 
-        const blogsExist = await Blogs.findOne({ exam_name });
+            // Create blog document
+            const blogs = await Blogs.create({
+                ...req.body,
+                image: imageUrl, // store as 'image' in DB
+            });
 
-        if (blogsExist) {
-            throw new ApiError(httpStatus.BAD_REQUEST, 'Blog already exist');
+            res.status(httpStatus.CREATED).json(blogs);
+
+        } catch (error) {
+            console.error("Error creating blog:", error);
+            res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
         }
-
-        const blogs = await Blogs.create(req.body);
-
-        res.status(httpStatus.CREATED).send(blogs);
     }
+
 }
 
 // const getAllBlogs = {
@@ -42,15 +58,15 @@ const createBlogs = {
 // }
 
 const getAllBlogs = {
-  handler: async (req, res) => {
-    const { status, search } = req.query;
-    const query = {};
+    handler: async (req, res) => {
+        const { status, search } = req.query;
+        const query = {};
 
-    if (status) query.status = status;
-    if (search) query.title = { $regex: search, $options: "i" };
-
-    await handlePagination(Blogs, req, res, query);
-  },
+        if (status) query.status = status;
+        if (search) query.title = { $regex: search, $options: "i" };
+        
+        await handlePagination(Blogs, req, res, query);
+    },
 };
 
 
@@ -83,7 +99,7 @@ const updateBlogs = {
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
-            // image: Joi.string(),
+            image: Joi.string(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
         }),
     },

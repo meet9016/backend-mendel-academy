@@ -6,6 +6,7 @@ const questionRoute = require('./question.route');
 const blogsRoute = require('./blogs.route');
 const preRoute = require('./prerecorded.route');
 const liveRoute = require('./livecourses.route');
+const examListRoute = require('./examCategory.route');
 
 const router = express.Router();
 
@@ -34,10 +35,15 @@ const defaultRoutes = [
     path: '/prerecorded', 
     route: preRoute,
   },
-   {
+  {
     path: '/livecourses', 
     route: liveRoute,
   },
+  {
+    path: '/examlist', 
+    route: examListRoute,
+  },
+
 ];
 
 

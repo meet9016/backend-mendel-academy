@@ -5,3 +5,4 @@ module.exports.questionController = require('./question.controller');
 module.exports.blogsController = require('./blogs.controller');
 module.exports.preRecordedController = require('./prerecorded.controller');
 module.exports.liveCoursesController = require('./livecourses.controller');
+module.exports.examCategoryController = require('./examCategory.controller');

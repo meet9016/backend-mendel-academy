@@ -51,24 +51,22 @@ passport.use('jwt', jwtStrategy);
 // enable files upload
 
 app.use(express.static(path.resolve("./public")));
-app.use(express.static(path.resolve("./images")));
-app.use(uploader({
-  safeFileNames: true,
-  preserveExtension: true,
-  limits: {
-    fileSize: 2 * 1024 * 1024,
-  },
-  abortOnLimit: true,
-  responseOnLimit: 'File size limit has been reached',
-  httpErrorCode: 400,
-  useDateFolder: true,
-  createParentPath: true
-}));
+// app.use(express.static(path.resolve("./images")));
+// app.use(uploader({
+//   safeFileNames: true,
+//   preserveExtension: true,
+//   limits: {
+//     fileSize: 2 * 1024 * 1024,
+//   },
+//   abortOnLimit: true,
+//   responseOnLimit: 'File size limit has been reached',
+//   httpErrorCode: 400,
+//   useDateFolder: true,
+//   createParentPath: true
+// }));
 
-// app.use('/uploads', express.static('uploads'));
-
-
-
+app.use('/uploads', express.static('uploads'));
+// app.use("/uploads", express.static("./uploads"));
 
 // limit repeated failed requests to auth endpoints
 if (config.env === 'production') {
