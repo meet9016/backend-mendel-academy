@@ -3,7 +3,8 @@ const catchAsync = require('../utils/catchAsync');
 const { authService, userService, tokenService, emailService } = require('../services');
 const Joi = require('joi');
 const ApiError = require('../utils/ApiError');
-const { default: User } = require('../models/user.model');
+const { User } = require('../models');
+const { sendWelcomeEmail } = require('../services/email.service');
 
 const register = {
   validation: {
@@ -15,36 +16,39 @@ const register = {
       password: Joi.string().required(),
     }),
   },
- handler: async (req, res) => {
-  try {
-    // Check if user already exists
-    const user = await User.findOne({ email: req.body.email });
-    if (user) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'User already registered');
-    }
+  handler: async (req, res) => {
+    try {
+      // Check if user already exists
+      const user = await User.findOne({ email: req.body.email });
+      if (user) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'User already registered');
+      }
 
-    // Create new user
-    const newUser = await new User(req.body).save();
+      // Create new user
+      const newUser = await new User(req.body).save();
 
-    // Generate auth tokens
-    const token = await tokenService.generateAuthTokens(newUser);
+      // Generate auth tokens
+      const token = await tokenService.generateAuthTokens(newUser);
 
-    // Send success response
-    return res.status(httpStatus.CREATED).send({
-      success: true,
-      message: 'User registered successfully',
-      user: newUser,
-      token,
-    });
-  } catch (error) {
-    return res
-      .status(error.statusCode || httpStatus.INTERNAL_SERVER_ERROR)
-      .send({
-        success: false,
-        message: error.message || 'Registration failed',
+      // Send welcome email via SMTP
+      await sendWelcomeEmail(newUser.email, newUser.first_name);
+
+      // Send success response
+      return res.status(httpStatus.CREATED).send({
+        success: true,
+        message: 'User registered successfully',
+        user: newUser,
+        token,
       });
+    } catch (error) {
+      return res
+        .status(error.statusCode || httpStatus.INTERNAL_SERVER_ERROR)
+        .send({
+          success: false,
+          message: error.message || 'Registration failed',
+        });
+    }
   }
-}
 
 };
 

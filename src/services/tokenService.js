@@ -1,12 +1,14 @@
 const jwt = require('jsonwebtoken');
+const { tokenTypes } = require('../config/tokens');
+const config = require('../config/config');
 
 const generateAuthTokens = async (user) => {
+
   const accessToken = jwt.sign(
-    { userId: user._id },
-    process.env.JWT_SECRET,
+    { sub: user.id, type: tokenTypes.ACCESS },
+    config.jwt.secret,
     { expiresIn: '1d' }
   );
-
   return { access: accessToken };
 };
 

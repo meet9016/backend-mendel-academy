@@ -4,3 +4,6 @@ module.exports.PreRecord = require('./prerecorded.model');
 module.exports.LiveCourses = require('./livecourses.model');
 module.exports.ExamCategory = require('./examCategory.model');
 module.exports.Cart = require('./cart.model');
+module.exports.User = require('./user.model');
+// module.exports.Order = require('./order.model');
+// module.exports.ExamCategory = require('./examCategory.model');

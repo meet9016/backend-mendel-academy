@@ -47,22 +47,22 @@ const addToCart = {
 };
 
 // Get User Cart
-// const getCart = {
-//     handler: async (req, res) => {
-//         try {
-//             const userId = req.user.id || req.user._id;
-//             const cart = await Cart.findOne({ userId }).populate('items.productId');
+const getCart = {
+    handler: async (req, res) => {
+        try {
+            const userId = req.user.id || req.user._id;
+            const cart = await Cart.findOne({ userId }).populate('items.productId');
 
-//             if (!cart) return res.status(200).json({ message: 'Cart is empty', items: [] });
+            if (!cart) return res.status(200).json({ message: 'Cart is empty', items: [] });
 
-//             const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-//             res.status(200).json({ status: 'success', totalAmount, cart });
-//         } catch (error) {
-//             res.status(500).json({ message: 'Server error', error });
-//         }
-//     },
-// };
+            res.status(200).json({ status: 'success', totalAmount, cart });
+        } catch (error) {
+            res.status(500).json({ message: 'Server error', error });
+        }
+    },
+};
 
 // Update Quantity
 const updateQuantity = {
@@ -161,7 +161,7 @@ const clearCart = {
 
 module.exports = {
     addToCart,
-    // getCart,
+    getCart,
     updateQuantity,
     deleteCartItem,
     clearCart,
