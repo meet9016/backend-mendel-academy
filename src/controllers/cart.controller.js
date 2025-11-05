@@ -1,49 +1,46 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const { Cart, Product } = require('../models');
+const Joi = require('joi');
 
 // Add to Cart
 const addToCart = {
-    handler: async (req, res) => {
-        try {
-            const userId = req.user.id || req.user._id;
-            const { productId, quantity } = req.body;
+  validation: {
+    body: Joi.object().keys({
+      category_name: Joi.string().trim().required(),
+      price: Joi.number().required(),
+      quantity: Joi.number().default(1),
+      duration: Joi.string().allow(null, ''),
+    }),
+  },
 
-            if (!productId || !quantity) {
-                throw new ApiError(httpStatus.BAD_REQUEST, 'Product ID and quantity are required');
-            }
+  handler: async (req, res) => {
+    try {
+      const { category_name } = req.body;
 
-            const product = await Product.findById(productId);
-            if (!product) throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
+      // Check if item with same category already exists
+      const existingItem = await Cart.findOne({ category_name });
 
-            let cart = await Cart.findOne({ userId });
-            if (!cart) cart = new Cart({ userId, items: [] });
+      if (existingItem) {
+        return res
+          .status(httpStatus.BAD_REQUEST)
+          .json({ message: 'Item already exists in cart' });
+      }
 
-            const existingItemIndex = cart.items.findIndex(
-                item => item.productId.toString() === productId
-            );
+      // Create new cart item
+      const item = await Cart.create(req.body);
 
-            if (existingItemIndex > -1) {
-                cart.items[existingItemIndex].quantity += quantity;
-            } else {
-                cart.items.push({ productId, quantity, price: product.price });
-            }
-
-            await cart.save();
-
-            const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-            res.status(200).json({
-                status: 'success',
-                message: 'Item added to cart successfully',
-                totalAmount,
-                cart,
-            });
-        } catch (error) {
-            console.error('Add to cart error:', error);
-            res.status(500).json({ message: 'Server error', error: error.message });
-        }
-    },
+      return res.status(httpStatus.CREATED).json({
+        message: 'Item added to cart successfully',
+        data: item,
+      });
+    } catch (error) {
+      console.error('Error creating cart item:', error);
+      return res
+        .status(httpStatus.INTERNAL_SERVER_ERROR)
+        .json({ message: error.message });
+    }
+  },
 };
 
 // Get User Cart

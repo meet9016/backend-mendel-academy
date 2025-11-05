@@ -3,27 +3,22 @@ const { toJSON } = require('./plugins');
 
 const cartSchema = mongoose.Schema(
     {
-        userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
+        category_name: {
+            type: String,
             required: true,
         },
-        items: [
-            {
-                productId: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "Product",
-                },
-                quantity: {
-                    type: Number,
-                    default: 1,
-                },
-                price: {
-                    type: Number,
-                    required: true,
-                },
-            },
-        ],
+        quantity: {
+            type: Number,
+            default: 1,
+        },
+        price: {
+            type: Number,
+            required: true,
+        },
+        duration: {
+            type: String,
+            // required: true,
+        },
     },
     {
         timestamps: true,

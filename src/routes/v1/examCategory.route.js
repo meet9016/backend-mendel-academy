@@ -12,9 +12,8 @@ router.post(
 );
 
 router.get("/getall", catchAsync(examCategoryController.getAllExamCategories.handler));
-
 router.get("/getById/:_id", catchAsync(examCategoryController.getExamCategoryById.handler));
-
+router.get("/exam-category-list", catchAsync(examCategoryController.getAllExamsList.handler));
 router.put(
   "/update/:_id",
   validate(examCategoryController.updateExamCategory.validation),
