@@ -5,5 +5,6 @@ module.exports.LiveCourses = require('./livecourses.model');
 module.exports.ExamCategory = require('./examCategory.model');
 module.exports.Cart = require('./cart.model');
 module.exports.User = require('./user.model');
+module.exports.Payment = require('./payment.model')
 // module.exports.Order = require('./order.model');
 // module.exports.ExamCategory = require('./examCategory.model');
