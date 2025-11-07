@@ -6,3 +6,5 @@ module.exports.preRecordedController = require('./prerecorded.controller');
 module.exports.liveCoursesController = require('./livecourses.controller');
 module.exports.examCategoryController = require('./examCategory.controller');
 module.exports.cartController = require('./cart.controller');
+module.exports.paymentController = require('./payment.controller');
+module.exports.faqController = require('./faq.controller');

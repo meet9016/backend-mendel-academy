@@ -7,6 +7,8 @@ const preRoute = require('./prerecorded.route');
 const liveRoute = require('./livecourses.route');
 const examListRoute = require('./examCategory.route');
 const cartRoute = require('./cart.route');
+const paymentRoute = require('./payment.route');
+const faqRoute = require('./faq.route')
 
 const router = express.Router();
 
@@ -16,34 +18,41 @@ const defaultRoutes = [
     route: authRoute,
   },
   {
-    path: '/category', 
+    path: '/category',
     route: categoryRoute,
   },
   {
-    path: '/question', 
+    path: '/question',
     route: questionRoute,
   },
   {
-    path: '/blogs', 
+    path: '/blogs',
     route: blogsRoute,
   },
   {
-    path: '/prerecorded', 
+    path: '/prerecorded',
     route: preRoute,
   },
   {
-    path: '/livecourses', 
+    path: '/livecourses',
     route: liveRoute,
   },
   {
-    path: '/examlist', 
+    path: '/examlist',
     route: examListRoute,
   },
   {
-    path: '/cart', 
+    path: '/cart',
     route: cartRoute,
   },
-
+  {
+    path: '/payment',
+    route: paymentRoute,
+  },
+  {
+    path: '/faq',
+    route: faqRoute
+  }
 ];
 
 

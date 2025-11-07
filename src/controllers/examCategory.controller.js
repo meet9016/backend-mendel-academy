@@ -3,6 +3,7 @@ const ApiError = require("../utils/ApiError");
 const Joi = require("joi");
 const { ExamCategory } = require("../models");
 const { handlePagination } = require("../utils/helper");
+const { ObjectId } = require("mongoose").Types;
 
 const createExamCategory = {
   validation: {
@@ -135,6 +136,7 @@ const getAllExamsList = {
 
         category.exams.forEach(exam => {
           dataMap[category.category_name].exams.push({
+            exam_id: category._id,
             _id: exam._id,
             exam_name: exam.exam_name,
             country: exam.country,
@@ -150,6 +152,39 @@ const getAllExamsList = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
+    }
+  },
+};
+
+//get only selected plan by its _id from choose_plan_list
+const getPlanById = {
+  handler: async (req, res) => {
+    try {
+      const { planId } = req.params; // plan _id from URL
+
+      // Find the category that has this plan _id in its choose_plan_list
+      const category = await ExamCategory.findOne(
+        { "choose_plan_list._id": new ObjectId(planId) },
+        { "choose_plan_list.$": 1 } // $ projection returns only the matched subdocument
+      );
+
+      if (!category || !category.choose_plan_list || category.choose_plan_list.length === 0) {
+        return res.status(httpStatus.NOT_FOUND).json({
+          message: "Plan not found",
+        });
+      }
+
+      const plan = category.choose_plan_list[0];
+
+      return res.status(httpStatus.OK).json({
+        message: "Plan retrieved successfully",
+        data: plan,
+      });
+    } catch (error) {
+      console.error("Error fetching plan:", error);
+      res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+        message: error.message,
+      });
     }
   },
 };
@@ -265,6 +300,7 @@ module.exports = {
   getAllExamCategories,
   getExamCategoryById,
   getAllExamsList,
+  getPlanById,
   updateExamCategory,
   deleteExamCategory,
 };

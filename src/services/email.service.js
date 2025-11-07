@@ -196,23 +196,39 @@ const logger = require('../config/logger');
 const moment = require('moment');
 const transporter = require('../config/email');
 
-const sendWelcomeEmail = async (to, name) => {
+const sendWelcomeEmail = async (to, name, zoomLink) => {
   const mailOptions = {
     from: `"Mendel Shop" <${process.env.SMTP_USER}>`,
     to,
-    subject: 'Welcome to Mendel!',
+    subject: 'Welcome to Mendel Academy! 🎓',
     html: `
-      <h2>Hi ${name}, 👋</h2>
-      <p>Welcome to <b>Mendel</b>! Your account has been created successfully.</p>
-      <p>You can now explore our products and start shopping!</p>
-      <br/>
-      <p>Best regards,<br/>The Mendel Team</p>
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Hi ${name}, 👋</h2>
+        <p>Welcome to <b>Mendel Academy</b>! Your account has been created successfully.</p>
+        <p>We’re excited to have you with us!</p>
+
+        ${
+          zoomLink
+            ? `
+            <p><b>Your welcome meeting is ready on Zoom:</b></p>
+            <a href="${zoomLink}" target="_blank" 
+              style="display:inline-block; background-color:#007bff; color:white; 
+                     padding:10px 20px; border-radius:6px; text-decoration:none;">
+              👉 Join Zoom Meeting
+            </a>
+            <p style="margin-top:10px;">Or copy this link: <br/><a href="${zoomLink}" target="_blank">${zoomLink}</a></p>
+          `
+            : `<p><i>Zoom meeting link is not available right now. We’ll send it to you soon.</i></p>`
+        }
+
+        <br/>
+        <p>Best regards,<br/><b>The Mendel Team</b></p>
+      </div>
     `,
   };
 
   await transporter.sendMail(mailOptions);
 };
-
 
 const transport = nodemailer.createTransport(config.email.smtp);
 if (config.env !== 'test') {

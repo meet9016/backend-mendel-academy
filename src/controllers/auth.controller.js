@@ -5,6 +5,7 @@ const Joi = require('joi');
 const ApiError = require('../utils/ApiError');
 const { User } = require('../models');
 const { sendWelcomeEmail } = require('../services/email.service');
+const { createZoomMeeting } = require('../services/zoom.service');
 
 const register = {
   validation: {
@@ -12,35 +13,55 @@ const register = {
       first_name: Joi.string().required(),
       last_name: Joi.string().required(),
       email: Joi.string().required().email(),
-      // password: Joi.string().required().custom(password),
       password: Joi.string().required(),
     }),
   },
+
   handler: async (req, res) => {
+    const session = await User.startSession(); // start MongoDB transaction session
+    session.startTransaction();
+
     try {
-      // Check if user already exists
-      const user = await User.findOne({ email: req.body.email });
-      if (user) {
+      // 1️⃣ Check if user already exists
+      const existingUser = await User.findOne({ email: req.body.email });
+      if (existingUser) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'User already registered');
       }
 
-      // Create new user
-      const newUser = await new User(req.body).save();
+      // 2️⃣ Create new user (inside transaction)
+      const newUser = await new User(req.body).save({ session });
 
-      // Generate auth tokens
+      // 3️⃣ Generate auth token
       const token = await tokenService.generateAuthTokens(newUser);
 
-      // Send welcome email via SMTP
-      await sendWelcomeEmail(newUser.email, newUser.first_name);
+      // 4️⃣ Create Zoom meeting (valid 5 min)
+      // const zoomMeeting = await createZoomMeeting(`Welcome ${newUser.first_name}`);
 
-      // Send success response
+      // 5️⃣ Send welcome email
+      await sendWelcomeEmail(newUser.email, newUser.first_name);
+      // await sendWelcomeEmail(newUser.email, newUser.first_name, zoomMeeting.join_url);
+
+      // ✅ If all succeed, commit transaction
+      await session.commitTransaction();
+      session.endSession();
+
+      console.log("Incoming registration body:", req.body);
+
+      // 6️⃣ Send success response
       return res.status(httpStatus.CREATED).send({
         success: true,
         message: 'User registered successfully',
         user: newUser,
         token,
+        zoom_meeting: zoomMeeting,
       });
+
     } catch (error) {
+      // ❌ Rollback changes if any step fails
+      await session.abortTransaction();
+      session.endSession();
+  console.error("❌ Registration Error:", error.message, error.stack);
+
       return res
         .status(error.statusCode || httpStatus.INTERNAL_SERVER_ERROR)
         .send({
@@ -48,8 +69,7 @@ const register = {
           message: error.message || 'Registration failed',
         });
     }
-  }
-
+  },
 };
 
 const login = {
