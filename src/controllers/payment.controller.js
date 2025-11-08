@@ -13,6 +13,9 @@ const crypto = require("crypto");
 const createPayment = {
   validation: {
     body: Joi.object().keys({
+      full_name: Joi.string(),
+      email: Joi.string(),
+      phone: Joi.number(),
       plan_id: Joi.string().required(),
       amount: Joi.number().required(),
       payment_method: Joi.string().valid("Razorpay", "Stripe", "Paypal").default("Razorpay"),
@@ -21,7 +24,7 @@ const createPayment = {
 
   handler: async (req, res) => {
     try {
-      const { plan_id, amount, payment_method } = req.body;
+      const { full_name, email, phone, plan_id, amount, payment_method } = req.body;
 
       // Razorpay needs amount in paise
       const options = {
@@ -34,6 +37,9 @@ const createPayment = {
 
       // 💾 Save the order immediately as Pending
       const payment = await Payment.create({
+        full_name,
+        email,
+        phone,
         plan_id,
         amount,
         currency: "INR",
@@ -290,6 +296,6 @@ module.exports = {
 
 
 module.exports = {
-    createPayment,
-    verifyPayment,
+  createPayment,
+  verifyPayment,
 };

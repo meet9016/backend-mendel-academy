@@ -3,6 +3,9 @@ const { toJSON } = require('./plugins');
 
 const paymentSchema = mongoose.Schema(
     {
+        email:{ type: String},
+        full_name: {type: String},
+        phone: {type: Number},
         // user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
         // category_id: { type: mongoose.Schema.Types.ObjectId, ref: "ExamList", required: true },
         plan_id: { type: mongoose.Schema.Types.ObjectId },
@@ -17,7 +20,7 @@ const paymentSchema = mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
         razorpay_order_id: { type: String },
         razorpay_payment_id: { type: String },
-        razorpay_signature: { type: String },
+        razorpay_signature: { type: String }
     },
     {
         timestamps: true,
