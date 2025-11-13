@@ -17,18 +17,18 @@ const createExamCategory = {
           country: Joi.string().allow(""),
           sub_titles: Joi.array().items(Joi.string().trim()).optional(),
           description: Joi.string().trim().optional(),
-          // status: Joi.string().valid("Active", "Inactive").insensitive().optional(),
+          status: Joi.string().valid("Active", "Inactive").insensitive().default("Active").optional(),
           image: Joi.string().optional(),
         })
       ),
 
       choose_plan_list: Joi.array().items(
         Joi.object({
-          plan_pricing: Joi.string(),
+          plan_pricing: Joi.string().allow("").optional(),
           plan_day: Joi.string(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array().items(Joi.string().trim()).required(),
-          // most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
+          most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
       who_can_enroll_title: Joi.string().trim().required(),
@@ -127,6 +127,33 @@ const getAllExamCategories = {
   },
 };
 
+const getAllExamCategoriesActiveData = {
+  handler: async (req, res) => {
+    try {
+      const { search, status } = req.query;
+      const query = {};
+
+      // 🔍 Optional search by category name
+      if (search) query.category_name = { $regex: search, $options: "i" };
+
+      // 🧠 Always exclude Inactive exams
+      query["exams.status"] = { $ne: "Inactive" };
+
+      // ✅ If you still want to allow custom status filter (like Active only)
+      if (status && status !== "Inactive") {
+        query["exams.status"] = status;
+      }
+
+      await handlePagination(ExamCategory, req, res, query);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      res
+        .status(500)
+        .json({ message: "Error fetching exam categories", error: err.message });
+    }
+  },
+};
+
 const getExamCategoryById = {
   handler: async (req, res) => {
     try {
@@ -148,24 +175,29 @@ const getAllExamsList = {
     try {
       const categories = await ExamCategory.find();
 
-      // Transform data into the required response
       const dataMap = {};
 
-      categories.forEach(category => {
+      categories.forEach((category) => {
+        // Initialize category entry
         if (!dataMap[category.category_name]) {
           dataMap[category.category_name] = {
             category_name: category.category_name,
-            exams: []
+            exams: [],
           };
         }
 
-        category.exams.forEach(exam => {
+        // ✅ Only include exams with Active status
+        const activeExams = category.exams.filter(
+          (exam) => exam.status === "Active"
+        );
+
+        activeExams.forEach((exam) => {
           dataMap[category.category_name].exams.push({
             exam_id: category._id,
             _id: exam._id,
             exam_name: exam.exam_name,
             country: exam.country,
-            status: exam.status
+            status: exam.status,
           });
         });
       });
@@ -175,8 +207,8 @@ const getAllExamsList = {
 
       res.json({ data: responseData });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server Error' });
+      console.error("Error fetching exams list:", error);
+      res.status(500).json({ message: "Server Error" });
     }
   },
 };
@@ -367,18 +399,18 @@ const updateExamCategory = {
           sub_titles: Joi.array().items(Joi.string().trim()).optional(),
           description: Joi.string().trim().optional(),
           image: Joi.string().optional(),
-          // status: Joi.string().valid("Active", "Inactive").optional(),
+          status: Joi.string().valid("Active", "Inactive").insensitive().default("Active").optional(),
         })
       ).optional(),
 
       choose_plan_list: Joi.array().items(
         Joi.object({
           _id: Joi.string().optional(),
-          plan_pricing: Joi.string().trim().required(),
-          plan_day: Joi.number().required(),
+          plan_pricing: Joi.string().allow("").optional(),
+          plan_day: Joi.string(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array().items(Joi.string().trim()).required(),
-          // most_popular: Joi.boolean().truthy('true').falsy('false').default(false)
+          most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
 
@@ -440,7 +472,7 @@ const updateExamCategory = {
             existingExam.description = exam.description || existingExam.description;
             existingExam.status = exam.status || existingExam.status;
             // existingExam.image = exam.image || existingExam.image;
-             if (req.files && req.files.image && req.files.image[0]) {
+            if (req.files && req.files.image && req.files.image[0]) {
               existingExam.image = `${baseUrl}/uploads/${req.files.image[0].filename}`;
             } else if (exam.image) {
               existingExam.image = exam.image;

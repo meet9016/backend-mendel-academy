@@ -19,11 +19,25 @@ const createContact = {
             const { email } = req.body;
 
             // Check if blog exists
-            // const contactusExist = await ContactUs.findOne({ email });
+            const contactusExist = await ContactUs.findOne({ email });
+            if (contactusExist) {
+                return res.status(httpStatus.BAD_REQUEST).send({
+                    success: false,
+                    message: "Email already exists. Please use a different email.",
+                });
+            }
 
-            const pre_recorded = await ContactUs.create(req.body);
+            // Create new record
+            const newContact = await ContactUs.create(req.body);
 
-            res.status(httpStatus.CREATED).send(pre_recorded);
+            res
+                .status(httpStatus.CREATED)
+                .send({
+                    success: true,
+                    message: "Successfully!",
+                    data: newContact
+                });
+
         } catch (error) {
             console.error("Error creating blog:", error);
             res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
