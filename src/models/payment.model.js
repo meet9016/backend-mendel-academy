@@ -3,29 +3,54 @@ const { toJSON } = require('./plugins');
 
 const paymentSchema = mongoose.Schema(
     {
-        email:{ type: String},
-        full_name: {type: String},
-        phone: {type: Number},
-        // user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-        // category_id: { type: mongoose.Schema.Types.ObjectId, ref: "ExamList", required: true },
-        plan_id: { type: mongoose.Schema.Types.ObjectId },
+        // ✅ Common User Info
+        full_name: { type: String, trim: true },
+        email: { type: String, trim: true },
+        phone: { type: String, trim: true },
+
+        // ✅ Plan / Order Info
+        plan_id: { type: String, required: true },
         amount: { type: Number, required: true },
-        // payment_status: { type: String, enum: ["Pending", "Success", "Failed"], default: "Pending" },
-        status: {
+        currency: { type: String, default: 'INR' },
+        payment_method: {
             type: String,
-            default: "created", // created | paid | failed
+            enum: ['Razorpay', 'Stripe', 'Paypal'],
+            default: 'Razorpay',
         },
-        transaction_id: { type: String },
-        payment_method: { type: String, enum: ["Razorpay", "Stripe", "Paypal"], default: "Razorpay" },
-        createdAt: { type: Date, default: Date.now },
-        razorpay_order_id: { type: String },
+
+        // ✅ Razorpay Specific Fields
+        transaction_id: { type: String }, // Razorpay Order ID
         razorpay_payment_id: { type: String },
-        razorpay_signature: { type: String }
+        razorpay_signature: { type: String },
+
+        // ✅ Stripe Specific Fields
+        paymentIntentId: { type: String },
+        card: {
+            brand: { type: String },
+            last4: { type: String },
+            exp_month: { type: Number },
+            exp_year: { type: Number },
+        },
+
+        // ✅ Payment Status
+        payment_status: {
+            type: String,
+            enum: ['Pending', 'paid', 'succeeded', 'failed', 'cancelled'],
+            default: 'Pending',
+        },
+
+        // ✅ Email Reference (for Stripe fallback)
+        customerEmail: { type: String },
+
+        // ✅ Miscellaneous / Metadata
+        remarks: { type: String },
     },
     {
-        timestamps: true,
+        timestamps: true, // createdAt, updatedAt
     }
 );
+
+paymentSchema.index({ paymentIntentId: 1, transaction_id: 1 });
 
 // add plugin that converts mongoose to json
 paymentSchema.plugin(toJSON);

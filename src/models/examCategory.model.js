@@ -15,6 +15,10 @@ const examListSchema = mongoose.Schema(
         required: true,
         trim: true,
       },
+      title: {
+        type: String,
+        trim: true, // ✅ new field
+      },
       country: {
         type: String,
         trim: true,
@@ -34,15 +38,16 @@ const examListSchema = mongoose.Schema(
         enum: ["Active", "Inactive"],
         default: "Active",
       },
+      image: { type: String },
     },],
     choose_plan_list: [{
       plan_pricing: {
         type: String,
-        required: true,
+        // required: true,
       },
       plan_day: {
-        type: Number,
-        required: true,
+        type: String,
+        // required: true,
       },
       plan_type: {
         type: String,
@@ -57,6 +62,9 @@ const examListSchema = mongoose.Schema(
         default: false,
       },
     }],
+    who_can_enroll_title: { type: String, trim: true },
+    who_can_enroll_description: { type: String, trim: true },
+    who_can_enroll_image: { type: String, trim: true },
   },
   {
     timestamps: true,

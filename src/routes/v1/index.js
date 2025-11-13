@@ -9,6 +9,7 @@ const examListRoute = require('./examCategory.route');
 const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
 const faqRoute = require('./faq.route')
+const contactusRoute = require('./contactUs.route')
 
 const router = express.Router();
 
@@ -52,6 +53,10 @@ const defaultRoutes = [
   {
     path: '/faq',
     route: faqRoute
+  },
+  {
+    path: '/contactus',
+    route: contactusRoute
   }
 ];
 
