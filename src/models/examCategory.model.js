@@ -55,7 +55,7 @@ const examListSchema = mongoose.Schema(
       },
       plan_sub_title: [{
         type: String,
-        required: true,
+        // required: true,
       }],
       most_popular: {
         type: Boolean,

@@ -27,7 +27,7 @@ const createExamCategory = {
           plan_pricing: Joi.string().allow("").optional(),
           plan_day: Joi.string(),
           plan_type: Joi.string().trim().required(),
-          plan_sub_title: Joi.array().items(Joi.string().trim()).required(),
+          plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
@@ -409,7 +409,7 @@ const updateExamCategory = {
           plan_pricing: Joi.string().allow("").optional(),
           plan_day: Joi.string(),
           plan_type: Joi.string().trim().required(),
-          plan_sub_title: Joi.array().items(Joi.string().trim()).required(),
+          plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
@@ -459,12 +459,10 @@ const updateExamCategory = {
           if (exam._id) {
             const existingExam = existingCategory.exams.id(exam._id);
 
-            console.log('existingExam', existingCategory.exams)
             if (!existingExam) {
               throw new ApiError(400, "Exam not found in this category");
             }
 
-            console.log('exam.status', existingExam.status, exam.status, exam)
             existingExam.exam_name = exam.exam_name || existingExam.exam_name;
             existingExam.title = exam.title || existingExam.title;
             existingExam.country = exam.country || existingExam.country;
