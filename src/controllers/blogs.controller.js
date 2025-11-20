@@ -93,15 +93,16 @@ const getBlogById = {
 
 const updateBlogs = {
     validation: {
-        body: Joi.object().keys({
+         body: Joi.object().keys({
             exam_name: Joi.string().trim().required(),
             title: Joi.string().trim().required(),
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
-            image: Joi.string(),
+            image: Joi.string().allow(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
-        }),
+        })
+         .prefs({ convert: true }),
     },
     handler: async (req, res) => {
 
@@ -114,7 +115,7 @@ const updateBlogs = {
         }
 
         if (req.body?.title) {
-            const blogsExist = await Blogs.findOne({ name: req.body.title, _id: { $ne: _id } });
+            const blogsExist = await Blogs.findOne({ title: req.body.title, _id: { $ne: _id } });
             if (blogsExist) {
                 throw new ApiError(httpStatus.BAD_REQUEST, 'Blogs already exist');
             }

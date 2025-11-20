@@ -11,7 +11,7 @@ router.post('/create-blogs', upload.single("image"), validate(blogsController.cr
 // router.post('/create-question', auth(), validate(blogsController.createQuestion.validation), catchAsync(blogsController.createQuestion.handler));
 router.get('/getall', catchAsync(blogsController.getAllBlogs.handler));
 router.get('/getById/:_id', catchAsync(blogsController.getBlogById.handler));
-router.put('/update/:_id', validate(blogsController.updateBlogs.validation), catchAsync(blogsController.updateBlogs.handler));
+router.put('/update/:_id', upload.single("image"), validate(blogsController.updateBlogs.validation), catchAsync(blogsController.updateBlogs.handler));
 router.delete('/delete/:_id', catchAsync(blogsController.deleteBlogs.handler));
 
 module.exports = router;

@@ -3,6 +3,17 @@ const { toJSON } = require('./plugins');
 
 const cartSchema = mongoose.Schema(
     {
+        temp_id: {
+            type: String,
+            required: true,   // guest temp id (device/session)
+            index: true,
+        },
+
+        product_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "PreRecord",
+            required: true,
+        },
         category_name: {
             type: String,
             required: true,

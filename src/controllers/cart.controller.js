@@ -5,61 +5,133 @@ const Joi = require('joi');
 
 // Add to Cart
 const addToCart = {
-  validation: {
-    body: Joi.object().keys({
-      category_name: Joi.string().trim().required(),
-      price: Joi.number().required(),
-      quantity: Joi.number().default(1),
-      duration: Joi.string().allow(null, ''),
-    }),
-  },
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string().required(),
+            product_id: Joi.string().required(),
+            category_name: Joi.string().trim().required(),
+            price: Joi.number().required(),
+            quantity: Joi.number().default(1),
+            duration: Joi.string().allow(null, ''),
+        }),
+    },
 
-  handler: async (req, res) => {
-    try {
-      const { category_name } = req.body;
-
-      // Check if item with same category already exists
-      const existingItem = await Cart.findOne({ category_name });
-
-      if (existingItem) {
-        return res
-          .status(httpStatus.BAD_REQUEST)
-          .json({ message: 'Item already exists in cart' });
-      }
-
-      // Create new cart item
-      const item = await Cart.create(req.body);
-
-      return res.status(httpStatus.CREATED).json({
-        message: 'Item added to cart successfully',
-        data: item,
-      });
-    } catch (error) {
-      console.error('Error creating cart item:', error);
-      return res
-        .status(httpStatus.INTERNAL_SERVER_ERROR)
-        .json({ message: error.message });
-    }
-  },
-};
-
-// Get User Cart
-const getCart = {
     handler: async (req, res) => {
         try {
-            const userId = req.user.id || req.user._id;
-            const cart = await Cart.findOne({ userId }).populate('items.productId');
+            const { temp_id, product_id, category_name, price, quantity, duration } = req.body;
 
-            if (!cart) return res.status(200).json({ message: 'Cart is empty', items: [] });
+            // Already exist check (same product + same variant)
+            let cartItem = await Cart.findOne({ temp_id, product_id, category_name, price, quantity, duration });
 
-            const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            if (cartItem) {
+                cartItem.quantity += quantity;
+                await cartItem.save();
+            } else {
+                cartItem = await Cart.create(req.body);
+            }
 
-            res.status(200).json({ status: 'success', totalAmount, cart });
+            return res.status(200).send({
+                success: true,
+                message: "Product added to cart successfully",
+                cart: cartItem,
+            });
+
         } catch (error) {
-            res.status(500).json({ message: 'Server error', error });
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
         }
     },
 };
+
+// Get User Cart
+// const getCart = {
+//     handler: async (req, res) => {
+//         try {
+//             const userId = req.user.id || req.user._id;
+//             const cart = await Cart.findOne({ userId }).populate('items.productId');
+
+//             if (!cart) return res.status(200).json({ message: 'Cart is empty', items: [] });
+
+//             const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+//             res.status(200).json({ status: 'success', totalAmount, cart });
+//         } catch (error) {
+//             res.status(500).json({ message: 'Server error', error });
+//         }
+//     },
+// };
+
+const getCart = {
+    handler: async (req, res) => {
+        try {
+            const { temp_id } = req.query;
+
+            if (!temp_id) {
+                return res.status(400).send({
+                    success: false,
+                    message: "temp_id is required",
+                });
+            }
+
+            const cartItems = await Cart.find({ temp_id })
+                .populate("product_id")
+                .lean();
+
+            const total = cartItems.reduce((acc, item) => {
+                // Ensure price and quantity are numeric (using parseFloat/parseInt)
+                const itemPrice = parseFloat(item.price) || 0;
+                const itemQuantity = parseInt(item.quantity) || 0;
+
+                return acc + (itemPrice * itemQuantity);
+            }, 0);
+
+            return res.status(200).send({
+                success: true,
+                message: "Cart fetched successfully",
+                cart: cartItems,
+                total: total
+            });
+
+        } catch (error) {
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
+        }
+    },
+};
+
+const getCartCount = {
+  handler: async (req, res) => {
+    try {
+      const { temp_id } = req.params;
+
+      if (!temp_id) {
+        return res.status(400).send({
+          success: false,
+          message: "temp_id is required",
+        });
+      }
+
+      // Count items
+      const count = await Cart.countDocuments({ temp_id });
+
+      return res.status(200).send({
+        success: true,
+        count: count,
+      });
+
+    } catch (error) {
+      return res.status(500).send({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+};
+
 
 // Update Quantity
 const updateQuantity = {
@@ -159,6 +231,7 @@ const clearCart = {
 module.exports = {
     addToCart,
     getCart,
+    getCartCount,
     updateQuantity,
     deleteCartItem,
     clearCart,

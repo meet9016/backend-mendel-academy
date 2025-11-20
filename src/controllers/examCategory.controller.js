@@ -4,6 +4,57 @@ const Joi = require("joi");
 const { ExamCategory } = require("../models");
 const { handlePagination } = require("../utils/helper");
 const { ObjectId } = require("mongoose").Types;
+const axios = require("axios");
+const { getLiveRates } = require("../utils/exchangeRates.js");
+
+// async function getLiveRates() {
+//   try {
+//     const { data } = await axios.get("https://open.er-api.com/v6/latest/USD");
+//     return data.rates;  // returns dynamic rates
+//   } catch (err) {
+//     console.error("Currency API Error:", err);
+//     return {
+//       USD: 1,
+//       INR: 83,
+//       GBP: 0.79,
+//       EUR: 0.92,
+//     }; // fallback
+//   }
+// }
+
+async function getCurrencyFromCountryCode(countryCode) {
+  try {
+    const { data } = await axios.get(
+      `https://restcountries.com/v3.1/alpha/${countryCode}`
+    );
+
+    const currencies = data[0].currencies;
+    const currencyCode = Object.keys(currencies)[0]; // e.g. CAD, USD, INR
+
+    return currencyCode;
+  } catch (err) {
+    console.error("Currency lookup failed:", err);
+    return "USD"; // fallback
+  }
+}
+
+const getUserCountryCode = async (ip) => {
+  try {
+    const response = await axios.get(`http://ip-api.com/json/${ip}`);
+    const countryCode = response.data.countryCode; // CA
+
+    const currency = await getCurrencyFromCountryCode(countryCode); // CAD
+
+    return {
+      country: response.data.country,
+      countryCode,
+      currency // dynamic
+    };
+
+  } catch (err) {
+    return { country: "Unknown", countryCode: "US", currency: "USD" };
+  }
+};
 
 const createExamCategory = {
   validation: {
@@ -154,18 +205,69 @@ const getAllExamCategoriesActiveData = {
   },
 };
 
+// const getExamCategoryById = {
+//   handler: async (req, res) => {
+//     try {
+//       const { _id } = req.params;
+//       const category = await ExamCategory.findById(_id);
+//       if (!category)
+//         return res.status(404).json({ message: "Category not found" });
+
+//       res.status(200).json(category);
+//     } catch (err) {
+//       console.error("Error fetching category:", err);
+//       res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: err.message });
+//     }
+//   },
+// };
+
 const getExamCategoryById = {
   handler: async (req, res) => {
     try {
+      // Extract real client IP
+      const ip =
+        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress;
+
+      // Detect country + currency
+      const user = await getUserCountryCode(ip);
+      // user = { country: "United States", currency: "USD" }
+
+      // Fetch live rates
+      const rates = await getLiveRates(); // gives { USD: 1, INR: 83, AUD: 1.52, ... }
+
       const { _id } = req.params;
       const category = await ExamCategory.findById(_id);
+
       if (!category)
         return res.status(404).json({ message: "Category not found" });
 
-      res.status(200).json(category);
+      // Convert all plans
+      const updatedPlans = category.choose_plan_list.map((plan) => {
+        const basePriceUSD = Number(plan.plan_pricing); // price stored in DB
+
+        // Convert price dynamically
+        const convertedPrice = Math.round(
+          basePriceUSD * (rates[user.currency] || 1)
+        );
+
+        return {
+          ...plan._doc,
+          plan_pricing: convertedPrice,
+          currency: user.currency, // USD / INR / AUD
+        };
+      });
+
+      res.status(200).json({
+        ...category._doc,
+        user_country: user.country,
+        user_currency: user.currency,
+        choose_plan_list: updatedPlans,
+      });
+
     } catch (err) {
       console.error("Error fetching category:", err);
-      res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: err.message });
+      res.status(500).json({ message: err.message });
     }
   },
 };
@@ -245,145 +347,6 @@ const getPlanById = {
     }
   },
 };
-
-// const updateExamCategory = {
-//   validation: {
-//     body: Joi.object().keys({
-//       category_name: Joi.string().trim().required(),
-//       exams: Joi.array().items(
-//         Joi.object({
-//           exam_name: Joi.string().trim().required(),
-//           country: Joi.string().allow(""),
-//           description: Joi.string().allow(""),
-//           status: Joi.string().valid("Active", "Inactive").optional(),
-//         })
-//       ),
-//     }),
-//   },
-
-//   handler: async (req, res) => {
-//     try {
-//       const { _id } = req.params;
-
-//       const category = await ExamCategory.findByIdAndUpdate(_id, req.body, {
-//         new: true,
-//       });
-
-//       if (!category)
-//         throw new ApiError(httpStatus.BAD_REQUEST, 'Category not exist');
-
-//       res.status(httpStatus.OK).json(category);
-//     } catch (err) {
-//       console.error("Error updating category:", err);
-//       res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: err.message });
-//     }
-//   },
-// };
-
-// const updateExamCategory = {
-//   validation: {
-//     body: Joi.object().keys({
-//       exams: Joi.array().items(
-//         Joi.object({
-//           _id: Joi.string().optional(),
-//           exam_name: Joi.string().trim().required(),
-//           country: Joi.string().allow(""),
-//           sub_titles: Joi.array().items(Joi.string().trim()).optional(),
-//           description: Joi.string().trim().optional(),
-//           image: Joi.string().optional(),
-//         })
-//       ).optional(),
-
-//       choose_plan_list: Joi.array().items(
-//         Joi.object({
-//           _id: Joi.string().optional(),
-//           plan_pricing: Joi.string().trim().required(),
-//           plan_day: Joi.number().required(),
-//           plan_type: Joi.string().trim().required(),
-//           plan_sub_title: Joi.array().items(Joi.string().trim()).required(),
-//           // most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
-//         })
-//       ).optional(),
-
-//       who_can_enroll_title: Joi.string().trim().required(),
-//       who_can_enroll_description: Joi.string().trim().required(),
-//       who_can_enroll_image: Joi.string().trim().required(),
-//     }),
-//   },
-
-//   handler: async (req, res) => {
-//     try {
-//       const { _id } = req.params; // category id
-//       const { exams, choose_plan_list } = req.body;
-
-
-//       // 🔍 Find the category
-//       const category = await ExamCategory.findById(_id);
-//       if (!category) {
-//         throw new ApiError(httpStatus.BAD_REQUEST, "Category not found");
-//       }
-
-//       const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-//       // ✅ Handle image upload for the first exam if present
-//       if (req.file && Array.isArray(exams) && exams.length > 0) {
-//         exams[0].image = req.file?.filename
-//           ? `${baseUrl}/uploads/${req.file.filename}`
-//           : "";
-//       }
-
-//       // ✅ Update exams
-//       if (Array.isArray(exams)) {
-//         for (const exam of exams) {
-//           if (exam._id) {
-//             const existingExam = category.exams.id(exam._id);
-
-//             if (existingExam) {
-//               existingExam.exam_name = exam.exam_name || existingExam.exam_name;
-//               existingExam.title = exam.title || existingExam.title;
-//               existingExam.country = exam.country || existingExam.country;
-//               existingExam.sub_titles = exam.sub_titles || existingExam.sub_titles;
-//               existingExam.description = exam.description || existingExam.description;
-//               existingExam.status = exam.status || existingExam.status;
-//               existingExam.image = exam.image || existingExam.image;
-//             } else {
-//               console.warn(`Exam with ID ${exam._id} not found in category.`);
-//             }
-//           }
-//         }
-//       }
-
-
-//       // ✅ Update plans
-//       if (Array.isArray(choose_plan_list)) {
-//         for (const plan of choose_plan_list) {
-//           if (plan._id) {
-//             const existingPlan = category.choose_plan_list.id(plan._id);
-//             if (existingPlan) {
-//               Object.assign(existingPlan, {
-//                 plan_pricing: plan.plan_pricing,
-//                 plan_day: plan.plan_day,
-//                 plan_type: plan.plan_type,
-//                 plan_sub_title: plan.plan_sub_title,
-//                 most_popular: plan.most_popular,
-//               });
-//             }
-//           }
-//         }
-//       }
-
-//       await category.save();
-
-//       return res.status(httpStatus.OK).json({
-//         message: "Exam category updated successfully.",
-//         updatedExam: category,
-//       });
-//     } catch (err) {
-//       console.error("Error updating exam:", err);
-//       res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: err.message });
-//     }
-//   },
-// };
 
 const updateExamCategory = {
   validation: {

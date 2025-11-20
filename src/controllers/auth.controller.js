@@ -18,8 +18,8 @@ const register = {
   },
 
   handler: async (req, res) => {
-    const session = await User.startSession(); // start MongoDB transaction session
-    session.startTransaction();
+    // const session = await User.startSession(); // start MongoDB transaction session
+    // session.startTransaction();
 
     try {
       // 1️⃣ Check if user already exists
@@ -29,7 +29,8 @@ const register = {
       }
 
       // 2️⃣ Create new user (inside transaction)
-      const newUser = await new User(req.body).save({ session });
+      // const newUser = await new User(req.body).save({ session });
+      const newUser = await new User(req.body).save();
 
       // 3️⃣ Generate auth token
       const token = await tokenService.generateAuthTokens(newUser);
@@ -42,8 +43,8 @@ const register = {
       // await sendWelcomeEmail(newUser.email, newUser.first_name, zoomMeeting.join_url);
 
       // ✅ If all succeed, commit transaction
-      await session.commitTransaction();
-      session.endSession();
+      // await session.commitTransaction();
+      // session.endSession();
 
       console.log("Incoming registration body:", req.body);
 
@@ -53,14 +54,14 @@ const register = {
         message: 'User registered successfully',
         user: newUser,
         token,
-        zoom_meeting: zoomMeeting,
+        // zoom_meeting: zoomMeeting,
       });
 
     } catch (error) {
       // ❌ Rollback changes if any step fails
-      await session.abortTransaction();
-      session.endSession();
-  console.error("❌ Registration Error:", error.message, error.stack);
+      // await session.abortTransaction();
+      // session.endSession();
+      console.error("❌ Registration Error:", error.message, error.stack);
 
       return res
         .status(error.statusCode || httpStatus.INTERNAL_SERVER_ERROR)
