@@ -93,7 +93,7 @@ const getBlogById = {
 
 const updateBlogs = {
     validation: {
-         body: Joi.object().keys({
+        body: Joi.object().keys({
             exam_name: Joi.string().trim().required(),
             title: Joi.string().trim().required(),
             sort_description: Joi.string().trim().required(),
@@ -102,7 +102,7 @@ const updateBlogs = {
             image: Joi.string().allow(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
         })
-         .prefs({ convert: true }),
+            .prefs({ convert: true }),
     },
     handler: async (req, res) => {
 
@@ -114,16 +114,23 @@ const updateBlogs = {
             throw new ApiError(httpStatus.BAD_REQUEST, 'Blogs not exist');
         }
 
-        if (req.body?.title) {
-            const blogsExist = await Blogs.findOne({ title: req.body.title, _id: { $ne: _id } });
-            if (blogsExist) {
-                throw new ApiError(httpStatus.BAD_REQUEST, 'Blogs already exist');
-            }
+        let imageUrl = blogsExist.image;
+        if (req.file?.filename) {
+            const baseUrl = req.protocol + "://" + req.get("host");
+            imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
         }
+        const updateData = {
+            ...req.body,
+            image: imageUrl,
+        };
 
-        const blogs = await Blogs.findByIdAndUpdate(_id, req.body, { new: true });
+        const blogs = await Blogs.findByIdAndUpdate(_id, updateData, { new: true });
 
-        res.send(blogs);
+        res.send({
+            success: true,
+            message: "Blog updated successfully",
+            data: blogs,
+        });
     }
 
 }
