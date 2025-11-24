@@ -8,5 +8,6 @@ module.exports.User = require('./user.model');
 module.exports.Payment = require('./payment.model');
 module.exports.Faq = require('./faq.model');
 module.exports.ContactUs = require('./contactUs.model');
+module.exports.Upcomming = require('./Upcomming.model');
 // module.exports.Order = require('./order.model');
 // module.exports.ExamCategory = require('./examCategory.model');
