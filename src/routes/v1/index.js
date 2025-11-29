@@ -3,8 +3,9 @@ const authRoute = require('./auth.route');
 const categoryRoute = require('./category.route');
 const questionRoute = require('./question.route');
 const blogsRoute = require('./blogs.route');
-const preRoute = require('./prerecorded.route');
-const liveRoute = require('./livecourses.route');
+const preRoute = require('./pathology/prerecorded.route');
+const liveRoute = require('./pathology/livecourses.route');
+const upcommingprogramRoute = require('./pathology/upComingProgram.route')
 const examListRoute = require('./examCategory.route');
 const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
@@ -62,6 +63,10 @@ const defaultRoutes = [
   {
     path: '/upcomming',
     route: upcommingRoute
+  },
+  {
+    path: '/upcomming-program',
+    route: upcommingprogramRoute
   }
 ];
 

@@ -13,25 +13,24 @@ const createFaq = {
     },
 
     handler: async (req, res) => {
-        const { title, description } = req.body;
+        try {
+            const { title, description } = req.body;
 
-        // 🧠 Create FAQ
-        const faq = await Faq.create({
-            title, description
-        });
+            const faq = await Faq.create(req.body);
 
-        res.status(httpStatus.CREATED).send({
-            status: "success",
-            code: httpStatus.CREATED,
-            data: {
-                _id: faq._id,
-                title: faq.title,
-                description: faq.description,
-                createdAt: faq.createdAt,
-                updatedAt: faq.updatedAt,
-            },
-        });
-    },
+            return res.status(201).json({
+                success: true,
+                message: "Faq created successfully",
+                data: faq
+            });
+        } catch (error) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to create live course",
+                error: error.message,
+            });
+        }
+    }
 };
 
 // ✅ UPDATE FAQ
@@ -54,16 +53,21 @@ const updateFaq = {
                 throw new ApiError(httpStatus.NOT_FOUND, "FAQ not found");
             }
 
-            res.status(httpStatus.OK).send({
-                status: "success",
-                code: httpStatus.OK,
-                data: {
-                    _id: faq._id,
-                    title: faq.title,
-                    description: faq.description,
-                    createdAt: faq.createdAt,
-                    updatedAt: faq.updatedAt,
-                },
+            // res.status(httpStatus.OK).send({
+            //     status: "success",
+            //     code: httpStatus.OK,
+            //     data: {
+            //         _id: faq._id,
+            //         title: faq.title,
+            //         description: faq.description,
+            //         createdAt: faq.createdAt,
+            //         updatedAt: faq.updatedAt,
+            //     },
+            // });
+            res.send({
+                success: true,
+                message: "Faq updated successfully",
+                faq
             });
         } catch (error) {
             if (!(error instanceof ApiError)) {

@@ -19,18 +19,29 @@ const createQuestion = {
     }),
   },
   handler: async (req, res) => {
+    try {
+      const { title } = req.body;
 
-    const { title } = req.body;
+      const questionExist = await Question.findOne({ title });
 
-    const questionExist = await Question.findOne({ title });
+      if (questionExist) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Question already exist');
+      }
 
-    if (questionExist) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Question already exist');
+      const question = await Question.create(req.body);
+
+      return res.status(201).json({
+        success: true,
+        message: "Question created successfully",
+        data: question
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create live course",
+        error: error.message,
+      });
     }
-
-    const question = await Question.create(req.body);
-
-    res.status(httpStatus.CREATED).send(question);
   }
 }
 
@@ -100,7 +111,11 @@ const updateQuestion = {
 
     const question = await Question.findByIdAndUpdate(_id, req.body, { new: true });
 
-    res.send(question);
+    res.send({
+      success: true,
+      message: "Question updated successfully",
+      question
+    });
   }
 
 }

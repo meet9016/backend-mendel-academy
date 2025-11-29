@@ -67,8 +67,26 @@ const handlePagination = async (Model, req, res, query = {}, sort = { createdAt:
     }
 };
 
+// Common function to format date → DD-MM-YYYY
+const formatDate = (date) => {
+    return new Date(date)
+        .toLocaleDateString("en-GB") // DD/MM/YYYY
+        .replace(/\//g, "-");        // DD-MM-YYYY
+};
+
+// Common function to format array + sort by date
+const sortAndFormat = (data, field = "date") => {
+    return data
+        .sort((a, b) => new Date(b[field]) - new Date(a[field])) // DESC (latest first)
+        .map(item => ({
+            ...item._doc,
+            [field]: formatDate(item[field])
+        }));
+};
+
 module.exports = {
     saveFile,
     removeFile,
-    handlePagination
+    handlePagination,
+    sortAndFormat
 }

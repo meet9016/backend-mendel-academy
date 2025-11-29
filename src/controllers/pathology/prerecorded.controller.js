@@ -1,8 +1,8 @@
 const httpStatus = require('http-status');
-const ApiError = require('../utils/ApiError');
+const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
-const { PreRecord } = require('../models');
-const { handlePagination } = require('../utils/helper');
+const { PreRecord } = require('../../models');
+const { handlePagination } = require('../../utils/helper');
 
 
 const createPreRecorded = {
@@ -22,18 +22,22 @@ const createPreRecorded = {
         }),
     },
     handler: async (req, res) => {
+        try {
+            const pre_recorded = await PreRecord.create(req.body);
 
-        // const { exam_name } = req.body;
-
-        // const blogsExist = await PreRecord.findOne({ exam_name });
-
-        // if (blogsExist) {
-        //     throw new ApiError(httpStatus.BAD_REQUEST, 'Pre-Recorded already exist');
-        // }
-
-        const pre_recorded = await PreRecord.create(req.body);
-
-        res.status(httpStatus.CREATED).send(pre_recorded);
+            res.status(httpStatus.CREATED).send(pre_recorded);
+            return res.status(201).json({
+                success: true,
+                message: "Pre Recorded created successfully",
+                data: pre_recorded
+            });
+        } catch (error) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to create Pre Recorded",
+                error: error.message,
+            });
+        }
     }
 }
 
@@ -74,7 +78,7 @@ const getPreRecordedById = {
 const updatePreRecorded = {
     validation: {
         body: Joi.object().keys({
-          title: Joi.string().trim().required(),
+            title: Joi.string().trim().required(),
             category: Joi.string(),
             total_reviews: Joi.number(),
             subtitle: Joi.string(),
@@ -104,9 +108,14 @@ const updatePreRecorded = {
             }
         }
 
-        const blogs = await PreRecord.findByIdAndUpdate(_id, req.body, { new: true });
+        const preRecord = await PreRecord.findByIdAndUpdate(_id, req.body, { new: true });
 
-        res.send(blogs);
+        res.send(preRecord);
+        res.send({
+            success: true,
+            message: "PreRecord updated successfully",
+            preRecord
+        });
     }
 
 }
