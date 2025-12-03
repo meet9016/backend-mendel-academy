@@ -9,5 +9,4 @@ module.exports.cartController = require('./cart.controller');
 module.exports.paymentController = require('./payment.controller');
 module.exports.faqController = require('./faq.controller');
 module.exports.contactUsController = require('./contact.controller');
-module.exports.upCommingController = require('./upComming.controller');
 module.exports.upCommingProgramController = require('./pathology/upComingProgram.controller');

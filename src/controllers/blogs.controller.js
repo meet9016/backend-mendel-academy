@@ -19,10 +19,10 @@ const createBlogs = {
     handler: async (req, res) => {
         try {
             const { exam_name } = req.body;
-           
+
             // Check if blog exists
             const blogsExist = await Blogs.findOne({ exam_name });
-           
+
             if (blogsExist) {
                 return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog already exists' });
             }
@@ -39,10 +39,12 @@ const createBlogs = {
                 image: imageUrl, // store as 'image' in DB
             });
 
-            res.status(httpStatus.CREATED).json(blogs);
-
+            return res.status(201).json({
+                success: true,
+                message: "Blog created successfully!",
+                blogs
+            });
         } catch (error) {
-            console.error("Error creating blog:", error);
             res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
         }
     }
@@ -64,7 +66,7 @@ const getAllBlogs = {
 
         if (status) query.status = status;
         if (search) query.title = { $regex: search, $options: "i" };
-        
+
         await handlePagination(Blogs, req, res, query);
     },
 };
@@ -128,7 +130,7 @@ const updateBlogs = {
 
         res.send({
             success: true,
-            message: "Blog updated successfully",
+            message: "Blog updated successfully!",
             data: blogs,
         });
     }

@@ -8,29 +8,19 @@ const { handlePagination, sortAndFormat } = require('../../utils/helper');
 const createLiveCourses = {
     validation: {
         body: Joi.object().keys({
-
             course_title: Joi.string().trim().required(),
-
             instructor: Joi.object({
                 name: Joi.string().trim().required(),
                 qualification: Joi.string().trim().allow(""),
                 // image: Joi.string().trim().allow("")
             }).required(),
-
             tags: Joi.array().items(Joi.string().trim()).optional(),
-
             date: Joi.date().required(),
-
             instructor_name: Joi.string().trim().required(),
-
             status: Joi.string().valid("live", "recorded", "upcoming").default("live"),
-
             isSoldOut: Joi.boolean().default(false),
-
             duration: Joi.string().allow("").optional(),
-
             zoom_link: Joi.string().trim().required(),
-
             choose_plan_list: Joi.array()
                 .items(
                     Joi.object({
@@ -38,15 +28,12 @@ const createLiveCourses = {
                         title: Joi.string().trim().required(),
                         subtitle: Joi.string().trim().allow(""),
                         description: Joi.string().trim().allow(""),
-
                         // 👉 YOUR SCHEMA USES SINGLE NUMBER PRICE
                         price: Joi.number().required(),
-
                         features: Joi.array()
                             .items(Joi.string().trim())
                             .min(1)
                             .required(),
-
                         isMostPopular: Joi.boolean().default(false)
                     })
                 )
@@ -61,7 +48,7 @@ const createLiveCourses = {
 
             return res.status(201).json({
                 success: true,
-                message: "Live course created successfully",
+                message: "Live course created successfully!",
                 data: course,
             });
         } catch (error) {
@@ -137,29 +124,19 @@ const getLiveCoursesById = {
 const updateLiveCourses = {
     validation: {
         body: Joi.object().keys({
-
             course_title: Joi.string().trim().required(),
-
             instructor: Joi.object({
                 name: Joi.string().trim().required(),
                 qualification: Joi.string().trim().allow(""),
                 image: Joi.string().trim().allow("")
             }).required(),
-
             tags: Joi.array().items(Joi.string().trim()).optional(),
-
             date: Joi.date().required(),
-
             instructor_name: Joi.string().trim().required(),
-
             status: Joi.string().valid("live", "recorded", "upcoming").default("live"),
-
             isSoldOut: Joi.boolean().default(false),
-
             duration: Joi.string().allow("").optional(),
-
             zoom_link: Joi.string().trim().required(),
-
             choose_plan_list: Joi.array()
                 .items(
                     Joi.object({
@@ -167,15 +144,12 @@ const updateLiveCourses = {
                         title: Joi.string().trim().required(),
                         subtitle: Joi.string().trim().allow(""),
                         description: Joi.string().trim().allow(""),
-
                         // 👉 YOUR SCHEMA USES SINGLE NUMBER PRICE
                         price: Joi.number().required(),
-
                         features: Joi.array()
                             .items(Joi.string().trim())
                             .min(1)
                             .required(),
-
                         isMostPopular: Joi.boolean().default(false)
                     })
                 )
@@ -205,7 +179,7 @@ const updateLiveCourses = {
         res.send(liveCourses);
         res.send({
             success: true,
-            message: "Live Courses updated successfully",
+            message: "Live Courses updated successfully!",
             liveCourses
         });
     }

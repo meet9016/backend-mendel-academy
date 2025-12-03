@@ -10,19 +10,30 @@ const createUpcomingProgram = {
         body: Joi.object().keys({
             title: Joi.string().trim().required(),
             waitlistCount: Joi.number(),
-            duration: Joi.string(),
-            features: Joi.array().items(Joi.string()),
-            status: Joi.string().trim(),
+            description: Joi.string(),
+            date: Joi.date().required(),
+            image: Joi.string().allow(),
+            course_types: Joi.string(),
+            // status: Joi.string().trim(),
         }),
     },
     handler: async (req, res) => {
         try {
             // Create blog document
-            const course = await UpCommingProgram.create(req.body);
-            res.status(httpStatus.CREATED).send(course);
-             return res.status(201).json({
+            const baseUrl = req.protocol + "://" + req.get("host");
+            const imageUrl = req.file?.filename
+                ? `${baseUrl}/uploads/${req.file.filename}`
+                : "";
+
+            // Create blog document
+            const course = await UpCommingProgram.create({
+                ...req.body,
+                image: imageUrl, // store as 'image' in DB
+            });
+
+            return res.status(201).json({
                 success: true,
-                message: "UpComing Program created successfully",
+                message: "Upcoming program created successfully!",
                 data: course
             });
         } catch (error) {
@@ -68,12 +79,13 @@ const getUpcomingProgramById = {
 
 const updateUpComingProgram = {
     validation: {
-       body: Joi.object().keys({
+        body: Joi.object().keys({
             title: Joi.string().trim().required(),
             waitlistCount: Joi.number(),
-            duration: Joi.string(),
-            features: Joi.array().items(Joi.string()),
-            status: Joi.string().trim(),
+            description: Joi.string(),
+            date: Joi.date().required(),
+            image: Joi.string().allow(),
+            course_types: Joi.string(),
         }),
     },
 
@@ -81,20 +93,29 @@ const updateUpComingProgram = {
 
         const { _id } = req.params;
 
-       const updates = req.body;
+        const courseExist = await UpCommingProgram.findOne({ _id });
 
-            const faq = await UpCommingProgram.findByIdAndUpdate(_id, updates, { new: true });
+        if (!courseExist) {
+            throw new ApiError(httpStatus.NOT_FOUND, "FAQ not found");
+        }
 
-            if (!faq) {
-                throw new ApiError(httpStatus.NOT_FOUND, "FAQ not found");
-            }
+        let imageUrl = courseExist.image;
+        if (req.file?.filename) {
+            const baseUrl = req.protocol + "://" + req.get("host");
+            imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        }
+        const updateData = {
+            ...req.body,
+            image: imageUrl,
+        };
 
+        const course = await UpCommingProgram.findByIdAndUpdate(_id, updateData, { new: true });
 
         res.send({
-                success: true,
-                message: "UpComming Program updated successfully",
-                faq
-            });
+            success: true,
+            message: "Upcoming program updated successfully!",
+            course
+        });
     },
 };
 

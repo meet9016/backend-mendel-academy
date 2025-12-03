@@ -25,10 +25,9 @@ const createPreRecorded = {
         try {
             const pre_recorded = await PreRecord.create(req.body);
 
-            res.status(httpStatus.CREATED).send(pre_recorded);
             return res.status(201).json({
                 success: true,
-                message: "Pre Recorded created successfully",
+                message: "Pre recorded created successfully!",
                 data: pre_recorded
             });
         } catch (error) {
@@ -110,10 +109,9 @@ const updatePreRecorded = {
 
         const preRecord = await PreRecord.findByIdAndUpdate(_id, req.body, { new: true });
 
-        res.send(preRecord);
         res.send({
             success: true,
-            message: "PreRecord updated successfully",
+            message: "Pre record updated successfully!",
             preRecord
         });
     }

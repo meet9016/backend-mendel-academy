@@ -11,7 +11,6 @@ const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
 const faqRoute = require('./faq.route')
 const contactusRoute = require('./contactUs.route')
-const upcommingRoute = require('./upcomming.route')
 
 const router = express.Router();
 
@@ -59,10 +58,6 @@ const defaultRoutes = [
   {
     path: '/contactus',
     route: contactusRoute
-  },
-  {
-    path: '/upcomming',
-    route: upcommingRoute
   },
   {
     path: '/upcomming-program',

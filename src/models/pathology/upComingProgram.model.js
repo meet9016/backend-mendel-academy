@@ -5,10 +5,18 @@ const upComingProgramSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     waitlistCount: { type: Number, default: 0 },
-    // progress: { type: Number, default: 0 },          // e.g., 79%
-    duration: { type: String },                      // "6-week program"
-    features: [{ type: String }],                    // list of feature strings
-    status: { type: String, default: "Launching Soon" },
+    description: {
+      type: String,
+      required: true,
+    },
+    date: {
+      type: Date,
+      required: true,
+    },
+    image: {
+      type: String
+    },
+    course_types: { type: String },
   },
   { timestamps: true }
 );

@@ -32,7 +32,7 @@ const createQuestion = {
 
       return res.status(201).json({
         success: true,
-        message: "Question created successfully",
+        message: "Question created successfully!",
         data: question
       });
     } catch (error) {
@@ -113,7 +113,7 @@ const updateQuestion = {
 
     res.send({
       success: true,
-      message: "Question updated successfully",
+      message: "Question updated successfully!",
       question
     });
   }

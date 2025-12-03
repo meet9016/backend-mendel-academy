@@ -20,7 +20,7 @@ const createFaq = {
 
             return res.status(201).json({
                 success: true,
-                message: "Faq created successfully",
+                message: "Faq created successfully!",
                 data: faq
             });
         } catch (error) {
@@ -66,7 +66,7 @@ const updateFaq = {
             // });
             res.send({
                 success: true,
-                message: "Faq updated successfully",
+                message: "Faq updated successfully!",
                 faq
             });
         } catch (error) {
