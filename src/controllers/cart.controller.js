@@ -104,32 +104,32 @@ const getCart = {
 };
 
 const getCartCount = {
-  handler: async (req, res) => {
-    try {
-      const { temp_id } = req.params;
+    handler: async (req, res) => {
+        try {
+            const { temp_id } = req.params;
 
-      if (!temp_id) {
-        return res.status(400).send({
-          success: false,
-          message: "temp_id is required",
-        });
-      }
+            if (!temp_id) {
+                return res.status(400).send({
+                    success: false,
+                    message: "temp_id is required",
+                });
+            }
 
-      // Count items
-      const count = await Cart.countDocuments({ temp_id });
+            // Count items
+            const count = await Cart.countDocuments({ temp_id });
 
-      return res.status(200).send({
-        success: true,
-        count: count,
-      });
+            return res.status(200).send({
+                success: true,
+                count: count,
+            });
 
-    } catch (error) {
-      return res.status(500).send({
-        success: false,
-        message: error.message,
-      });
+        } catch (error) {
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
+        }
     }
-  }
 };
 
 
@@ -198,32 +198,31 @@ const deleteCartItem = {
 };
 
 // Clear Entire Cart
-const clearCart = {
+const removeCart = {
     handler: async (req, res) => {
         try {
-            const userId = req.user.id || req.user._id;
+            const id = req.params.id;
 
-            if (!userId) {
-                return res.status(401).json({ message: 'User not authenticated' });
+            const deletedItem = await Cart.findByIdAndDelete(id);
+
+            if (!deletedItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Record not found!"
+                });
             }
 
-            const cart = await Cart.findOne({ userId });
-
-            if (!cart) {
-                return res.status(404).json({ message: 'Cart not found' });
-            }
-
-            cart.items = [];
-            await cart.save();
-
-            res.status(200).json({
-                status: 'success',
-                message: 'Cart cleared successfully',
-                cart,
+            res.json({
+                success: true,
+                message: "Record deleted successfully!",
+                data: deletedItem
             });
         } catch (error) {
-            console.error('Clear cart error:', error);
-            res.status(500).json({ message: 'Server error', error: error.message });
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+                error: error.message
+            });
         }
     },
 };
@@ -234,5 +233,5 @@ module.exports = {
     getCartCount,
     updateQuantity,
     deleteCartItem,
-    clearCart,
+    removeCart,
 };

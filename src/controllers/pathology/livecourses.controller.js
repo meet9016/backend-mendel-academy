@@ -176,7 +176,6 @@ const updateLiveCourses = {
 
         const liveCourses = await LiveCourses.findByIdAndUpdate(_id, req.body, { new: true });
 
-        res.send(liveCourses);
         res.send({
             success: true,
             message: "Live Courses updated successfully!",

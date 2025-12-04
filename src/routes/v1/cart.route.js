@@ -12,6 +12,6 @@ router.get('/get', catchAsync(cartController.getCart.handler));
 router.get("/count/:temp_id", catchAsync(cartController.getCartCount.handler));
 router.put('/update', catchAsync(cartController.updateQuantity.handler));
 router.delete('/delete/:_id', catchAsync(cartController.deleteCartItem.handler));
-router.delete('/clear', catchAsync(cartController.clearCart.handler));
+router.delete('/remove/:id', catchAsync(cartController.removeCart.handler));
 
 module.exports = router;

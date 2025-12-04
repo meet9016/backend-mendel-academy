@@ -52,9 +52,33 @@ const getAllUpcomingProgram = {
         if (status) query.status = status;
         if (search) query.title = { $regex: search, $options: "i" };
 
-        await handlePagination(UpCommingProgram, req, res, query);
+        try {
+            // Fetch all matching programs
+            let programs = await UpCommingProgram.find(query);
+
+            // Sort by date ascending
+            programs.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Format date as "Month Year"
+            const formattedData = programs.map(item => ({
+                ...item._doc,
+                date: new Date(item.date).toLocaleString("en-US", {
+                    month: "long",
+                    year: "numeric"
+                })
+            }));
+
+            return res.json({
+                success: true,
+                data: formattedData
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ success: false, message: "Server Error" });
+        }
     }
-}
+};
+
 
 const getUpcomingProgramById = {
 
