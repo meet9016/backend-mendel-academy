@@ -201,30 +201,83 @@ const sendWelcomeEmail = async (to, name, zoomLink) => {
     from: `"Mendel Shop" <${process.env.SMTP_USER}>`,
     to,
     subject: 'Welcome to Mendel Academy! 🎓',
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2>Hi ${name}, 👋</h2>
-        <p>Welcome to <b>Mendel Academy</b>! Your account has been created successfully.</p>
-        <p>We’re excited to have you with us!</p>
+   html: `
+  <div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, sans-serif;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" 
+      style="max-width:600px; margin:auto; background:white; border-radius:8px; overflow:hidden;">
+      
+      <!-- Header -->
+      <tr>
+        <td style="background:#232323; text-align:center; padding:30px 20px;">
+          <img src="https://content.jdmagicbox.com/v2/comp/surat/v4/0261px261.x261.230116134549.v5v4/catalogue/mendel-academy-ring-road-surat-institutes-op38wx54xr.jpg" 
+               alt="Mendel Academy Logo" 
+               style="width:100%; height:100%; margin-bottom:10px;"/>
+          <h1 style="color:#F1C232; margin:0; font-size:26px; font-weight:bold;">
+            Complete Your Registration
+          </h1>
+        </td>
+      </tr>
 
-        ${
-          zoomLink
-            ? `
-            <p><b>Your welcome meeting is ready on Zoom:</b></p>
-            <a href="${zoomLink}" target="_blank" 
-              style="display:inline-block; background-color:#007bff; color:white; 
-                     padding:10px 20px; border-radius:6px; text-decoration:none;">
-              👉 Join Zoom Meeting
-            </a>
-            <p style="margin-top:10px;">Or copy this link: <br/><a href="${zoomLink}" target="_blank">${zoomLink}</a></p>
-          `
-            : `<p><i>Zoom meeting link is not available right now. We’ll send it to you soon.</i></p>`
-        }
+      <!-- Body -->
+      <tr>
+        <td style="padding:25px 30px; color:#333;">
+          <h2 style="margin-top:0;">Hi ${name}, 👋</h2>
+          <p style="font-size:15px; line-height:1.6;">
+            Welcome to <b>Mendel Academy</b>! Your account has been created successfully.
+          </p>
+          <p style="font-size:15px; line-height:1.6;">
+            We’re excited to have you with us! Here are your details:
+          </p>
 
-        <br/>
-        <p>Best regards,<br/><b>The Mendel Team</b></p>
-      </div>
-    `,
+          <!-- Zoom Section -->
+          ${
+            zoomLink
+              ? `
+              <div style="margin:20px 0; padding:15px; background:#f0f7ff; border-left:4px solid #007bff;">
+                <p style="margin:0 0 10px;"><b>Your welcome meeting is ready!</b></p>
+                <a href="${zoomLink}" target="_blank" 
+                  style="background:#007bff; color:white; padding:12px 20px; 
+                         text-decoration:none; border-radius:5px; display:inline-block;">
+                  👉 Join Zoom Meeting
+                </a>
+                <p style="margin-top:10px; font-size:14px;">
+                  Or copy link: <br/>
+                  <a href="${zoomLink}" target="_blank" style="color:#007bff;">${zoomLink}</a>
+                </p>
+              </div>
+            `
+              : `
+              <div style="margin:20px 0; padding:15px; background:#fff8e1; border-left:4px solid #f1c232;">
+                <p style="margin:0; font-size:14px;">
+                  <i>Zoom meeting link is not available yet. We’ll send it as soon as it’s ready.</i>
+                </p>
+              </div>
+            `
+          }
+
+          <p style="font-size:15px; margin-top:20px;">
+            If you have any questions, feel free to reply to this email!
+          </p>
+
+          <p style="margin-top:25px; font-size:15px;">
+            Best regards,<br/>
+            <b>The Mendel Academy Team</b>
+          </p>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="background:#232323; padding:15px; text-align:center;">
+          <p style="color:#F1C232; margin:0; font-size:13px;">
+            © ${new Date().getFullYear()} Mendel Academy. All rights reserved.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </div>
+`
+
   };
 
   await transporter.sendMail(mailOptions);

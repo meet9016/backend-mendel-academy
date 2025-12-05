@@ -9,6 +9,7 @@ const { handlePagination } = require('../utils/helper');
 const { getLiveRates } = require('../utils/exchangeRates');
 const { getCurrencyFromCountry } = require('../utils/currency');
 const getCountryFromIP = require('../utils/getCountryFromIP');
+const Cart = require('../models/cart.model');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // =====================
@@ -20,7 +21,7 @@ const createPayment = {
       full_name: Joi.string(),
       email: Joi.string(),
       phone: Joi.number(),
-      plan_id: Joi.string().required(),
+      plan_id: Joi.string(),
       amount: Joi.number().required(),
       currency: Joi.string().allow(""),
       payment_method: Joi.string().valid('Razorpay', 'Stripe', 'Paypal').default('Razorpay'),
@@ -30,7 +31,7 @@ const createPayment = {
 
   handler: async (req, res) => {
     try {
-      const { full_name, email, phone, plan_id, amount, payment_method,payment_status, currency } = req.body;
+      const { full_name, email, phone, plan_id, amount, payment_method, payment_status, currency } = req.body;
 
       // 1️⃣ Detect country if not sent
       let userCountry = currency;
@@ -46,7 +47,7 @@ const createPayment = {
 
       // ⚠ Razorpay supports a limited set of currencies
       const supportedCurrencies = [
-        "INR", "USD", "EUR", "GBP", "AED", "SAR", "AUD", "SGD", 
+        "INR", "USD", "EUR", "GBP", "AED", "SAR", "AUD", "SGD",
         "CAD", "MYR", "QAR", "BHD", "OMR", "NZD"
       ];
 
@@ -134,6 +135,10 @@ const verifyPayment = {
       );
 
       if (finalStatus === 'paid') {
+        await Cart.updateMany(
+          { temp_id: plan_id },
+          { $set: { bucket_type: false } }
+        );
         res.json({
           success: true,
           message: '✅ Payment verified & saved successfully',
@@ -156,7 +161,7 @@ const verifyPayment = {
 const createStripePaymentIntent = {
   handler: async (req, res) => {
     try {
-      let { amount, country, email } = req.body;
+      let { amount, country, email, plan_id } = req.body;
 
       if (!amount) {
         return res.status(400).json({ error: "Amount is required" });
@@ -242,7 +247,10 @@ const verifyPaymentStripe = {
         payment_method: "Stripe",
         payment_status,
       });
-
+      await Cart.updateMany(
+        { temp_id: plan_id },
+        { $set: { bucket_type: false } }
+      );
       return res.json({
         success: true,
         message: "Stripe payment saved",
@@ -261,16 +269,16 @@ const verifyPaymentStripe = {
 };
 
 const getAllPayment = {
-    handler: async (req, res) => {
-        const { status, search } = req.query;
+  handler: async (req, res) => {
+    const { status, search } = req.query;
 
-        const query = {};
+    const query = {};
 
-        if (status) query.status = status;
-        if (search) query.title = { $regex: search, $options: "i" };
+    if (status) query.status = status;
+    if (search) query.title = { $regex: search, $options: "i" };
 
-        await handlePagination(Payment, req, res, query);
-    }
+    await handlePagination(Payment, req, res, query);
+  }
 }
 module.exports = {
   createPayment,

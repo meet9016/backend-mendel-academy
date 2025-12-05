@@ -288,7 +288,7 @@ const getAllExamsList = {
           };
         }
 
-        // ✅ Only include exams with Active status
+        // ✅ Only include exams with Active status 
         const activeExams = category.exams.filter(
           (exam) => exam.status === "Active"
         );

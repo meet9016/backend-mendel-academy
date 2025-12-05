@@ -9,6 +9,8 @@ const router = express.Router();
 
 router.post('/create', validate(cartController.addToCart.validation), catchAsync(cartController.addToCart.handler));
 router.get('/get', catchAsync(cartController.getCart.handler));
+router.get('/get-all-cart', catchAsync(cartController.getAllCart.handler));
+router.get('/get-checkout/:temp_id', catchAsync(cartController.getCheckoutPageTempId.handler));
 router.get("/count/:temp_id", catchAsync(cartController.getCartCount.handler));
 router.put('/update', catchAsync(cartController.updateQuantity.handler));
 router.delete('/delete/:_id', catchAsync(cartController.deleteCartItem.handler));

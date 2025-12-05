@@ -13,6 +13,7 @@ const addToCart = {
             price: Joi.number().required(),
             quantity: Joi.number().default(1),
             duration: Joi.string().allow(null, ''),
+            bucket_type: Joi.boolean(),
         }),
     },
 
@@ -45,23 +46,27 @@ const addToCart = {
     },
 };
 
-// Get User Cart
-// const getCart = {
-//     handler: async (req, res) => {
-//         try {
-//             const userId = req.user.id || req.user._id;
-//             const cart = await Cart.findOne({ userId }).populate('items.productId');
+// Get checkout page temp_id vise data
+const getCheckoutPageTempId = {
+    handler: async (req, res) => {
+        try {
+            const { temp_id } = req.params;
+            const data = await Cart.find({ temp_id });
+            // Calculate total
+            const totalAmount = data.reduce((sum, item) => {
+                return sum + item.price * item.quantity;
+            }, 0);
+            return res.status(200).send({
+                success: true,
+                data: data,
+                totalAmount: totalAmount  // 👈 send total price
+            });
 
-//             if (!cart) return res.status(200).json({ message: 'Cart is empty', items: [] });
-
-//             const totalAmount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-//             res.status(200).json({ status: 'success', totalAmount, cart });
-//         } catch (error) {
-//             res.status(500).json({ message: 'Server error', error });
-//         }
-//     },
-// };
+        } catch (error) {
+            res.status(500).json({ message: 'Server error', error });
+        }
+    },
+};
 
 const getCart = {
     handler: async (req, res) => {
@@ -75,7 +80,7 @@ const getCart = {
                 });
             }
 
-            const cartItems = await Cart.find({ temp_id })
+            const cartItems = await Cart.find({ temp_id, bucket_type: true })
                 .populate("product_id")
                 .lean();
 
@@ -102,6 +107,24 @@ const getCart = {
         }
     },
 };
+
+const getAllCart = {
+    handler: async (req, res) => {
+        try {
+            const carts = await Cart.find();
+            res.status(200).json({
+                success: true,
+                data: carts,
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Server error',
+                error: error.message,
+            });
+        }
+    }
+}
 
 const getCartCount = {
     handler: async (req, res) => {
@@ -131,7 +154,6 @@ const getCartCount = {
         }
     }
 };
-
 
 // Update Quantity
 const updateQuantity = {
@@ -172,7 +194,6 @@ const updateQuantity = {
         }
     },
 };
-
 
 // Remove Product from Cart
 const deleteCartItem = {
@@ -229,7 +250,9 @@ const removeCart = {
 
 module.exports = {
     addToCart,
+    getCheckoutPageTempId,
     getCart,
+    getAllCart,
     getCartCount,
     updateQuantity,
     deleteCartItem,

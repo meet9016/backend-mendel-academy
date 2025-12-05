@@ -9,7 +9,7 @@ const paymentSchema = mongoose.Schema(
         phone: { type: String, trim: true },
 
         // ✅ Plan / Order Info
-        plan_id: { type: String, required: true },
+        plan_id: { type: String },
         amount: { type: Number, required: true },
         currency: { type: String, default: 'INR' },
         payment_method: {

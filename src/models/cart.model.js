@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { toJSON } = require('./plugins');
+const { boolean } = require('joi');
 
 const cartSchema = mongoose.Schema(
     {
@@ -29,6 +30,9 @@ const cartSchema = mongoose.Schema(
         duration: {
             type: String,
             // required: true,
+        },
+        bucket_type: {  
+            type: Boolean,
         },
     },
     {
