@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.post('/register', validate(authController.register.validation), catchAsync(authController.register.handler));
 router.post('/login', validate(authController.login.validation), catchAsync(authController.login.handler));
+router.get('/profile/:id', catchAsync(authController.getUserProfile.handler));
 
 
 // router.post('/login', validate(authValidation.login), authController.login);

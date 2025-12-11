@@ -2,12 +2,14 @@ const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const { Cart, Product } = require('../models');
 const Joi = require('joi');
+const mongoose = require("mongoose");
 
 // Add to Cart
 const addToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string().required(),
+            temp_id: Joi.string(),
+            user_id: Joi.string(),
             product_id: Joi.string().required(),
             category_name: Joi.string().trim().required(),
             price: Joi.number().required(),
@@ -19,10 +21,11 @@ const addToCart = {
 
     handler: async (req, res) => {
         try {
-            const { temp_id, product_id, category_name, price, quantity, duration } = req.body;
+
+            const { temp_id, user_id, product_id, category_name, price, quantity, duration } = req.body;
 
             // Already exist check (same product + same variant)
-            let cartItem = await Cart.findOne({ temp_id, product_id, category_name, price, quantity, duration });
+            let cartItem = await Cart.findOne({ temp_id, user_id, product_id, category_name, price, quantity, duration });
 
             if (cartItem) {
                 cartItem.quantity += quantity;
@@ -31,10 +34,19 @@ const addToCart = {
                 cartItem = await Cart.create(req.body);
             }
 
+            // Count total items for this temp_id OR user_id
+            const countQuery = user_id ? { user_id } : { temp_id };
+            console.log("countQuery",countQuery);
+
+            countQuery.bucket_type = true;
+            const totalItems = await Cart.countDocuments(countQuery);
+            console.log("totalItems",totalItems);
+            
             return res.status(200).send({
                 success: true,
                 message: "Product added to cart successfully",
                 cart: cartItem,
+                count: totalItems, // total items for this user/temp
             });
 
         } catch (error) {
@@ -46,20 +58,38 @@ const addToCart = {
     },
 };
 
-// Get checkout page temp_id vise data
 const getCheckoutPageTempId = {
     handler: async (req, res) => {
         try {
             const { temp_id } = req.params;
-            const data = await Cart.find({ temp_id });
+
+            let data = [];
+
+            // 1️⃣ Try using temp_id
+            data = await Cart.find({ temp_id, bucket_type: true });
+
+            // 2️⃣ If no data found → try using user_id
+            if (data.length === 0) {
+                data = await Cart.find({ user_id: temp_id, bucket_type: true });
+            }
+
+            // If still no data
+            if (data.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "No cart found"
+                });
+            }
+
             // Calculate total
             const totalAmount = data.reduce((sum, item) => {
-                return sum + item.price * item.quantity;
+                return sum + (item.price * item.quantity);
             }, 0);
-            return res.status(200).send({
+
+            return res.status(200).json({
                 success: true,
-                data: data,
-                totalAmount: totalAmount  // 👈 send total price
+                data,
+                totalAmount
             });
 
         } catch (error) {
@@ -80,23 +110,32 @@ const getCart = {
                 });
             }
 
-            const cartItems = await Cart.find({ temp_id, bucket_type: true })
+            // Check if the passed value is a REAL ObjectId
+            const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
+
+            const query = {
+                $or: [
+                    { temp_id: temp_id },              // Guest cart
+                    ...(isObjectId ? [{ user_id: temp_id }] : [])  // User cart only if valid ObjectId
+                ],
+                bucket_type: true
+            };
+
+            const cartItems = await Cart.find(query)
                 .populate("product_id")
                 .lean();
 
             const total = cartItems.reduce((acc, item) => {
-                // Ensure price and quantity are numeric (using parseFloat/parseInt)
-                const itemPrice = parseFloat(item.price) || 0;
-                const itemQuantity = parseInt(item.quantity) || 0;
-
-                return acc + (itemPrice * itemQuantity);
+                const price = Number(item.price) || 0;
+                const qty = Number(item.quantity) || 0;
+                return acc + price * qty;
             }, 0);
 
             return res.status(200).send({
                 success: true,
                 message: "Cart fetched successfully",
                 cart: cartItems,
-                total: total
+                total
             });
 
         } catch (error) {
@@ -107,6 +146,7 @@ const getCart = {
         }
     },
 };
+
 
 const getAllCart = {
     handler: async (req, res) => {
@@ -129,21 +169,32 @@ const getAllCart = {
 const getCartCount = {
     handler: async (req, res) => {
         try {
-            const { temp_id } = req.params;
+            const { temp_id } = req.params; // value can be temp_id or user_id
 
             if (!temp_id) {
                 return res.status(400).send({
                     success: false,
-                    message: "temp_id is required",
+                    message: "temp_id or user_id is required",
                 });
             }
 
-            // Count items
-            const count = await Cart.countDocuments({ temp_id });
+            const mongoose = require("mongoose");
+            const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
+
+            // Query base condition  
+            const query = isObjectId
+                ? { user_id: temp_id }   // logged-in user
+                : { temp_id: temp_id };  // guest user
+
+            // 👉 IMPORTANT: Add bucket_type filter (must be true)
+            query.bucket_type = true;
+
+            // Count only items with bucket_type true
+            const count = await Cart.countDocuments(query);
 
             return res.status(200).send({
                 success: true,
-                count: count,
+                count,
             });
 
         } catch (error) {
@@ -152,7 +203,7 @@ const getCartCount = {
                 message: error.message,
             });
         }
-    }
+    },
 };
 
 // Update Quantity

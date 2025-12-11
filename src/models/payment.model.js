@@ -7,6 +7,12 @@ const paymentSchema = mongoose.Schema(
         full_name: { type: String, trim: true },
         email: { type: String, trim: true },
         phone: { type: String, trim: true },
+        user_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",         // reference your User model
+            required: false,     // guest users won’t have user_id
+            index: true,
+        },
 
         // ✅ Plan / Order Info
         plan_id: { type: String },

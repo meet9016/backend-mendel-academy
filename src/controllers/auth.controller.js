@@ -3,7 +3,7 @@ const catchAsync = require('../utils/catchAsync');
 const { authService, userService, tokenService, emailService } = require('../services');
 const Joi = require('joi');
 const ApiError = require('../utils/ApiError');
-const { User } = require('../models');
+const { User, Cart, Payment } = require('../models');
 const { sendWelcomeEmail } = require('../services/email.service');
 const { createZoomMeeting } = require('../services/zoom.service');
 
@@ -93,6 +93,47 @@ const login = {
   }
 };
 
+const getUserProfile = {
+
+  handler: async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await User.findById(userId);
+
+      // Cart items all
+      const cartItems = await Cart.find({ user_id: userId });
+
+      // bucket_type = true
+      const addToCartItem = cartItems.filter(item => item.bucket_type === true);
+
+      // bucket_type = false
+      const payBill = cartItems.filter(item => item.bucket_type === false);
+
+      // Payment items
+      const paymentItems = await Payment.find({ user_id: userId });
+
+      if (!user) {
+        return res.status(404).json({ message: "User Not Found" });
+      }
+
+      return res.status(200).send({
+        success: true,
+        message: "Successfully",
+        user: user,
+        cart: {
+          addToCartItem: addToCartItem,
+          payBill: payBill
+        },
+        payment: paymentItems,
+        totalSpent: paymentItems.reduce((total, payment) => total + payment.amount, 0),
+      });
+
+    } catch (error) {
+      res.status(500).json({ message: "Server Error", error });
+    }
+  }
+}
+
 const logout = catchAsync(async (req, res) => {
   await authService.logout(req.body.refreshToken);
   res.status(httpStatus.NO_CONTENT).send();
@@ -134,4 +175,5 @@ module.exports = {
   resetPassword,
   sendVerificationEmail,
   verifyEmail,
+  getUserProfile,
 };

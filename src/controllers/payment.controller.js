@@ -18,10 +18,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const createPayment = {
   validation: {
     body: Joi.object().keys({
-      full_name: Joi.string(),
-      email: Joi.string(),
-      phone: Joi.number(),
+      full_name: Joi.string().allow("").optional(),
+      email: Joi.string().allow("").optional(),
+      phone: Joi.string().allow("").optional(),
       plan_id: Joi.string(),
+      user_id: Joi.string(),
       amount: Joi.number().required(),
       currency: Joi.string().allow(""),
       payment_method: Joi.string().valid('Razorpay', 'Stripe', 'Paypal').default('Razorpay'),
@@ -31,7 +32,7 @@ const createPayment = {
 
   handler: async (req, res) => {
     try {
-      const { full_name, email, phone, plan_id, amount, payment_method, payment_status, currency } = req.body;
+      const { full_name = "", email = "", phone = "", plan_id, user_id, amount, payment_method, payment_status, currency } = req.body;
 
       // 1️⃣ Detect country if not sent
       let userCountry = currency;
@@ -71,6 +72,7 @@ const createPayment = {
         email,
         phone,
         plan_id,
+        user_id,
         amount,
         currency,
         transaction_id: order.id,
@@ -107,20 +109,23 @@ const verifyPayment = {
         razorpay_signature,
         amount,
         plan_id,
-        status,
+        user_id,      // can be real user ID or guest ID
+        status,       // "captured"
       } = req.body;
 
-      const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-      hmac.update(razorpay_order_id + '|' + razorpay_payment_id);
-      const generatedSignature = hmac.digest('hex');
+      // 1️⃣ SIGNATURE VALIDATION
+      const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
+      hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+      const generatedSignature = hmac.digest("hex");
 
       const isAuthentic = generatedSignature === razorpay_signature;
 
-      let finalStatus = 'failed';
-      if (isAuthentic && status === 'captured') {
-        finalStatus = 'paid';
+      let finalStatus = "failed";
+      if (isAuthentic && status === "captured") {
+        finalStatus = "paid";
       }
 
+      // 2️⃣ SAVE / UPDATE PAYMENT ENTRY
       const payment = await Payment.findOneAndUpdate(
         { transaction_id: razorpay_order_id },
         {
@@ -128,32 +133,56 @@ const verifyPayment = {
           razorpay_signature,
           amount,
           plan_id,
-          // currency: payment?.currency,
+          user_id,
           payment_status: finalStatus,
         },
         { upsert: true, new: true }
       );
 
-      if (finalStatus === 'paid') {
-        await Cart.updateMany(
-          { temp_id: plan_id },
+      console.log("Payment status:", finalStatus);
+
+      // 3️⃣ UPDATE CART AFTER SUCCESSFUL PAYMENT
+      if (finalStatus === "paid") {
+        let matchQuery;
+
+        // ------------------------
+        // Guest User (temp_id case)
+        // ------------------------
+        if (typeof user_id === "string" && user_id.startsWith("guest_")) {
+          matchQuery = { temp_id: user_id }; // guest cart
+        }
+        // ------------------------
+        // Logged In User
+        // ------------------------
+        else {
+          matchQuery = { user_id: user_id }; // real user cart
+        }
+
+        // Update cart bucket_type → false
+        const cartUpdate = await Cart.updateMany(
+          matchQuery,
           { $set: { bucket_type: false } }
         );
-        res.json({
+        return res.json({
           success: true,
-          message: '✅ Payment verified & saved successfully',
-          payment,
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: '❌ Payment failed or invalid signature',
+          message: "✅ Payment verified & cart updated",
           payment,
         });
       }
+
+      // 4️⃣ PAYMENT FAILED
+      return res.status(400).json({
+        success: false,
+        message: "❌ Payment failed or invalid signature",
+        payment,
+      });
+
     } catch (error) {
-      console.error('Verify Payment Error:', error);
-      res.status(500).json({ success: false, message: 'Server error while verifying payment' });
+      console.error("Verify Payment Error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while verifying payment",
+      });
     }
   },
 };
