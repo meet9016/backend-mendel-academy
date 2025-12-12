@@ -41,8 +41,12 @@ const examListSchema = mongoose.Schema(
       image: { type: String },
     },],
     choose_plan_list: [{
-      plan_pricing: {
-        type: String,
+      plan_pricing_dollar: {
+        type: Number,
+        // required: true,
+      },
+      plan_pricing_inr: {
+        type: Number,
         // required: true,
       },
       plan_day: {

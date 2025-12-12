@@ -75,7 +75,8 @@ const createExamCategory = {
 
       choose_plan_list: Joi.array().items(
         Joi.object({
-          plan_pricing: Joi.string().allow("").optional(),
+          plan_pricing_dollar: Joi.number().allow("").optional(),
+          plan_pricing_inr: Joi.number().allow("").optional(),
           plan_day: Joi.string(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array(),

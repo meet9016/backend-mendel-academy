@@ -13,7 +13,11 @@ const paymentSchema = mongoose.Schema(
             required: false,     // guest users won’t have user_id
             index: true,
         },
-
+        guest_id: {
+            type: String,   // "guest_xxxxxx" store hoga
+            required: false,
+            index: true,
+        },
         // ✅ Plan / Order Info
         plan_id: { type: String },
         amount: { type: Number, required: true },

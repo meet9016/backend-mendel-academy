@@ -32,7 +32,7 @@ const createPayment = {
 
   handler: async (req, res) => {
     try {
-      const { full_name = "", email = "", phone = "", plan_id, user_id, amount, payment_method, payment_status, currency } = req.body;
+      const { full_name = "", email = "", phone = "", plan_id, user_id, guest_id, amount, payment_method, payment_status, currency } = req.body;
 
       // 1️⃣ Detect country if not sent
       let userCountry = currency;
@@ -73,6 +73,7 @@ const createPayment = {
         phone,
         plan_id,
         user_id,
+        guest_id: !user_id ? guest_id : null,
         amount,
         currency,
         transaction_id: order.id,
@@ -109,23 +110,21 @@ const verifyPayment = {
         razorpay_signature,
         amount,
         plan_id,
-        user_id,      // can be real user ID or guest ID
+        user_id,      // guest_id OR real user id
+        guest_id,
         status,       // "captured"
       } = req.body;
+      console.log("222222*****", req.body);
 
-      // 1️⃣ SIGNATURE VALIDATION
+      // 1️⃣ Validate Razorpay Signature
       const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
       hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
       const generatedSignature = hmac.digest("hex");
 
       const isAuthentic = generatedSignature === razorpay_signature;
+      const finalStatus = isAuthentic && status === "captured" ? "paid" : "failed";
 
-      let finalStatus = "failed";
-      if (isAuthentic && status === "captured") {
-        finalStatus = "paid";
-      }
-
-      // 2️⃣ SAVE / UPDATE PAYMENT ENTRY
+      // 2️⃣ Save / Update payment record
       const payment = await Payment.findOneAndUpdate(
         { transaction_id: razorpay_order_id },
         {
@@ -133,47 +132,41 @@ const verifyPayment = {
           razorpay_signature,
           amount,
           plan_id,
-          user_id,
+          user_id,    // NOTE: guest id allowed
+          guest_id: !user_id ? guest_id : null,
           payment_status: finalStatus,
         },
-        { upsert: true, new: true }
+        { new: true }
       );
 
-      console.log("Payment status:", finalStatus);
-
-      // 3️⃣ UPDATE CART AFTER SUCCESSFUL PAYMENT
-      if (finalStatus === "paid") {
-        let matchQuery;
-
-        // ------------------------
-        // Guest User (temp_id case)
-        // ------------------------
-        if (typeof user_id === "string" && user_id.startsWith("guest_")) {
-          matchQuery = { temp_id: user_id }; // guest cart
-        }
-        // ------------------------
-        // Logged In User
-        // ------------------------
-        else {
-          matchQuery = { user_id: user_id }; // real user cart
-        }
-
-        // Update cart bucket_type → false
-        const cartUpdate = await Cart.updateMany(
-          matchQuery,
-          { $set: { bucket_type: false } }
-        );
-        return res.json({
-          success: true,
-          message: "✅ Payment verified & cart updated",
+      // If Not Authentic
+      if (finalStatus !== "paid") {
+        return res.status(400).json({
+          success: false,
+          message: "❌ Payment failed or invalid signature",
           payment,
         });
       }
 
-      // 4️⃣ PAYMENT FAILED
-      return res.status(400).json({
-        success: false,
-        message: "❌ Payment failed or invalid signature",
+      // 3️⃣ CART UPDATE — Guest OR Logged in User
+      let matchQuery = {};
+
+      // Guest User → guest_xxxxx
+      if (typeof user_id === "string" && user_id.startsWith("guest_")) {
+        matchQuery = { temp_id: user_id };
+      }
+      // Logged In User
+      else {
+        matchQuery = { user_id };
+      }
+
+      await Cart.updateMany(matchQuery, {
+        $set: { bucket_type: false },
+      });
+
+      return res.json({
+        success: true,
+        message: "✅ Payment verified & cart updated",
         payment,
       });
 
