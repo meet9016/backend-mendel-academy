@@ -22,6 +22,9 @@ const toJSON = (schema) => {
 
   schema.options.toJSON = Object.assign(schema.options.toJSON || {}, {
     transform(doc, ret, options) {
+      // Preserve options array before any deletions
+      const preservedOptions = doc.options;
+      
       Object.keys(schema.paths).forEach((path) => {
         if (schema.paths[path].options && schema.paths[path].options.private) {
           deleteAtPath(ret, path.split('.'), 0);
@@ -31,8 +34,13 @@ const toJSON = (schema) => {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;
-      // delete ret.createdAt;
       delete ret.updatedAt;
+      
+      // Explicitly restore options array after transformations
+      if (preservedOptions !== undefined) {
+        ret.options = preservedOptions;
+      }
+      
       if (transform) {
         return transform(doc, ret, options);
       }

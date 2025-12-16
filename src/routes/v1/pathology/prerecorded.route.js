@@ -12,5 +12,8 @@ router.get('/getall', catchAsync(preRecordedController.getAllPreRecorded.handler
 router.get('/getById/:_id', catchAsync(preRecordedController.getPreRecordedById.handler));
 router.put('/update/:_id', validate(preRecordedController.updatePreRecorded.validation), catchAsync(preRecordedController.updatePreRecorded.handler));
 router.delete('/delete/:_id', catchAsync(preRecordedController.deletePreRecorded.handler));
-
+router.put('/toggle-option/:_id',
+    validate(preRecordedController.toggleOptionAvailability.validation),
+    catchAsync(preRecordedController.toggleOptionAvailability.handler)
+);
 module.exports = router;

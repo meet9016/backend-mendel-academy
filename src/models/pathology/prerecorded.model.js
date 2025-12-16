@@ -1,6 +1,30 @@
 const mongoose = require('mongoose');
 const { toJSON } = require('../plugins');
 
+const optionSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['record-book', 'video', 'writing-book'],
+    required: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  features: [{
+    type: String,
+    required: true
+  }],
+  is_available: {
+    type: Boolean,
+    default: true
+  }
+}, { _id: false });
+
 const preRecordedSchema = mongoose.Schema(
   {
     title: {
@@ -9,15 +33,12 @@ const preRecordedSchema = mongoose.Schema(
     },
     category: {
       type: String,
-      // required: true,
     },
     total_reviews: {
       type: Number,
-      // required: true,  
     },
     subtitle: {
       type: String,
-      // required: true,
     },
     vimeo_video_id: {
       type: String,
@@ -25,7 +46,6 @@ const preRecordedSchema = mongoose.Schema(
     },
     rating: {
       type: Number,
-      // required: true,
     },
     price: {
       type: Number,
@@ -48,18 +68,18 @@ const preRecordedSchema = mongoose.Schema(
       enum: ['Active', 'Inactive'],
       default: 'Active',
     },
+    options: {
+      type: [optionSchema],
+      default: []
+    }
   },
   {
     timestamps: true,
   }
 );
 
-// add plugin that converts mongoose to json
 preRecordedSchema.plugin(toJSON);
 
-/**
- * @typedef PreRecord
- */
 const PreRecord = mongoose.model('PreRecord', preRecordedSchema);
 
 module.exports = PreRecord;

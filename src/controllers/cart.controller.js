@@ -1,19 +1,21 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
-const { Cart, Product } = require('../models');
+const { Cart, PreRecord } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
 
-// Add to Cart
+// ✅ UPDATED: Add/Update Cart with multiple options for same product
 const addToCart = {
     validation: {
         body: Joi.object().keys({
             temp_id: Joi.string(),
             user_id: Joi.string(),
             product_id: Joi.string().required(),
+            selected_options: Joi.array()
+                .items(Joi.string().valid('record-book', 'video', 'writing-book'))
+                .min(1)
+                .required(),
             category_name: Joi.string().trim().required(),
-            price: Joi.number().required(),
-            quantity: Joi.number().default(1),
             duration: Joi.string().allow(null, ''),
             bucket_type: Joi.boolean(),
         }),
@@ -21,35 +23,84 @@ const addToCart = {
 
     handler: async (req, res) => {
         try {
+            const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
 
-            const { temp_id, user_id, product_id, category_name, price, quantity, duration } = req.body;
-
-            // Already exist check (same product + same variant)
-            let cartItem = await Cart.findOne({ temp_id, user_id, product_id, category_name, price, quantity, duration });
-
-            if (cartItem) {
-                cartItem.quantity += quantity;
-                await cartItem.save();
-            } else {
-                cartItem = await Cart.create(req.body);
+            // ✅ Get product details to calculate price
+            const product = await PreRecord.findById(product_id);
+            if (!product) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Product not found",
+                });
             }
 
-            // Count total items for this temp_id OR user_id
-            const countQuery = user_id ? { user_id } : { temp_id };
-            console.log("countQuery",countQuery);
+            // ✅ Calculate total price for selected options
+            let total_price = 0;
+            for (const optionType of selected_options) {
+                const option = product.options.find(o => o.type === optionType);
+                if (option && option.is_available) {
+                    total_price += option.price;
+                } else {
+                    return res.status(400).send({
+                        success: false,
+                        message: `Option ${optionType} is not available`,
+                    });
+                }
+            }
 
+            // ✅ Check if product already exists in cart
+            const query = {
+                product_id,
+                bucket_type: true
+            };
+            
+            if (user_id) {
+                query.user_id = user_id;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                // ✅ Update existing cart item with new options
+                cartItem.selected_options = selected_options;
+                cartItem.total_price = total_price;
+                await cartItem.save();
+            } else {
+                // ✅ Create new cart item
+                cartItem = await Cart.create({
+                    temp_id,
+                    user_id,
+                    product_id,
+                    selected_options,
+                    category_name,
+                    total_price,
+                    duration,
+                    bucket_type: true,
+                    quantity: 1
+                });
+            }
+
+            // Count total items
+            const countQuery = user_id ? { user_id } : { temp_id };
             countQuery.bucket_type = true;
             const totalItems = await Cart.countDocuments(countQuery);
-            console.log("totalItems",totalItems);
-            
+
             return res.status(200).send({
                 success: true,
                 message: "Product added to cart successfully",
                 cart: cartItem,
-                count: totalItems, // total items for this user/temp
+                count: totalItems,
             });
 
         } catch (error) {
+            console.error('Add to cart error:', error);
             return res.status(500).send({
                 success: false,
                 message: error.message,
@@ -66,14 +117,15 @@ const getCheckoutPageTempId = {
             let data = [];
 
             // 1️⃣ Try using temp_id
-            data = await Cart.find({ temp_id, bucket_type: true });
+            data = await Cart.find({ temp_id, bucket_type: true })
+                .populate('product_id');
 
             // 2️⃣ If no data found → try using user_id
             if (data.length === 0) {
-                data = await Cart.find({ user_id: temp_id, bucket_type: true });
+                data = await Cart.find({ user_id: temp_id, bucket_type: true })
+                    .populate('product_id');
             }
 
-            // If still no data
             if (data.length === 0) {
                 return res.status(404).json({
                     success: false,
@@ -83,7 +135,7 @@ const getCheckoutPageTempId = {
 
             // Calculate total
             const totalAmount = data.reduce((sum, item) => {
-                return sum + (item.price * item.quantity);
+                return sum + (item.total_price * item.quantity);
             }, 0);
 
             return res.status(200).json({
@@ -93,7 +145,11 @@ const getCheckoutPageTempId = {
             });
 
         } catch (error) {
-            res.status(500).json({ message: 'Server error', error });
+            res.status(500).json({
+                success: false,
+                message: 'Server error',
+                error: error.message
+            });
         }
     },
 };
@@ -110,13 +166,12 @@ const getCart = {
                 });
             }
 
-            // Check if the passed value is a REAL ObjectId
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
             const query = {
                 $or: [
-                    { temp_id: temp_id },              // Guest cart
-                    ...(isObjectId ? [{ user_id: temp_id }] : [])  // User cart only if valid ObjectId
+                    { temp_id: temp_id },
+                    ...(isObjectId ? [{ user_id: temp_id }] : [])
                 ],
                 bucket_type: true
             };
@@ -126,7 +181,7 @@ const getCart = {
                 .lean();
 
             const total = cartItems.reduce((acc, item) => {
-                const price = Number(item.price) || 0;
+                const price = Number(item.total_price) || 0;
                 const qty = Number(item.quantity) || 0;
                 return acc + price * qty;
             }, 0);
@@ -147,11 +202,10 @@ const getCart = {
     },
 };
 
-
 const getAllCart = {
     handler: async (req, res) => {
         try {
-            const carts = await Cart.find();
+            const carts = await Cart.find().populate('product_id');
             res.status(200).json({
                 success: true,
                 data: carts,
@@ -169,7 +223,7 @@ const getAllCart = {
 const getCartCount = {
     handler: async (req, res) => {
         try {
-            const { temp_id } = req.params; // value can be temp_id or user_id
+            const { temp_id } = req.params;
 
             if (!temp_id) {
                 return res.status(400).send({
@@ -178,18 +232,14 @@ const getCartCount = {
                 });
             }
 
-            const mongoose = require("mongoose");
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
-            // Query base condition  
             const query = isObjectId
-                ? { user_id: temp_id }   // logged-in user
-                : { temp_id: temp_id };  // guest user
+                ? { user_id: temp_id }
+                : { temp_id: temp_id };
 
-            // 👉 IMPORTANT: Add bucket_type filter (must be true)
             query.bucket_type = true;
 
-            // Count only items with bucket_type true
             const count = await Cart.countDocuments(query);
 
             return res.status(200).send({
@@ -206,70 +256,42 @@ const getCartCount = {
     },
 };
 
-// Update Quantity
 const updateQuantity = {
+    validation: {
+        body: Joi.object().keys({
+            cart_id: Joi.string().required(),
+            quantity: Joi.number().min(1).required()
+        })
+    },
     handler: async (req, res) => {
         try {
-            const userId = req.user.id || req.user._id;
-            const { productId, quantity } = req.body;
+            const { cart_id, quantity } = req.body;
 
-            if (!productId || quantity == null) {
-                throw new ApiError(httpStatus.BAD_REQUEST, 'Product ID and quantity are required');
+            const cartItem = await Cart.findById(cart_id);
+
+            if (!cartItem) {
+                throw new ApiError(httpStatus.NOT_FOUND, 'Cart item not found');
             }
 
-            const cart = await Cart.findOne({ userId });
-            if (!cart) throw new ApiError(httpStatus.NOT_FOUND, 'Cart not found');
-
-            const itemIndex = cart.items.findIndex(
-                item => item.productId?.toString() === String(productId)
-            );
-
-            if (itemIndex === -1) {
-                throw new ApiError(httpStatus.NOT_FOUND, 'Product not found in cart');
-            }
-
-            cart.items[itemIndex].quantity = quantity;
-            await cart.save();
+            cartItem.quantity = quantity;
+            await cartItem.save();
 
             res.status(200).json({
-                status: 'success',
+                success: true,
                 message: 'Cart updated successfully',
-                cart
+                data: cartItem
             });
         } catch (error) {
             console.error('Update quantity error:', error);
             res.status(error.statusCode || 500).json({
-                status: 'error',
+                success: false,
                 message: error.message || 'Server error'
             });
         }
     },
 };
 
-// Remove Product from Cart
-const deleteCartItem = {
-    handler: async (req, res) => {
-        try {
-            const userId = req.user.id || req.user._id;
-            const { productId } = req.params;
-
-            const cart = await Cart.findOne({ userId });
-            if (!cart) throw new ApiError(httpStatus.NOT_FOUND, 'Cart not found');
-
-            cart.items = cart.items.filter(
-                item => item.productId.toString() !== productId
-            );
-
-            await cart.save();
-
-            res.status(200).json({ status: 'success', message: 'Product removed from cart', cart });
-        } catch (error) {
-            res.status(500).json({ message: 'Server error', error });
-        }
-    },
-};
-
-// Clear Entire Cart
+// ✅ Remove entire cart item (product)
 const removeCart = {
     handler: async (req, res) => {
         try {
@@ -280,13 +302,13 @@ const removeCart = {
             if (!deletedItem) {
                 return res.status(404).json({
                     success: false,
-                    message: "Record not found!"
+                    message: "Cart item not found!"
                 });
             }
 
             res.json({
                 success: true,
-                message: "Record deleted successfully!",
+                message: "Cart item deleted successfully!",
                 data: deletedItem
             });
         } catch (error) {
@@ -299,6 +321,126 @@ const removeCart = {
     },
 };
 
+// ✅ NEW: Update selected options for a cart item
+const updateCartOptions = {
+    validation: {
+        body: Joi.object().keys({
+            cart_id: Joi.string().required(),
+            selected_options: Joi.array()
+                .items(Joi.string().valid('record-book', 'video', 'writing-book'))
+                .min(1)
+                .required()
+        })
+    },
+    handler: async (req, res) => {
+        try {
+            const { cart_id, selected_options } = req.body;
+
+            const cartItem = await Cart.findById(cart_id).populate('product_id');
+
+            if (!cartItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Cart item not found!"
+                });
+            }
+
+            // Calculate new total price
+            let total_price = 0;
+            for (const optionType of selected_options) {
+                const option = cartItem.product_id.options.find(o => o.type === optionType);
+                if (option && option.is_available) {
+                    total_price += option.price;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Option ${optionType} is not available`
+                    });
+                }
+            }
+
+            cartItem.selected_options = selected_options;
+            cartItem.total_price = total_price;
+            await cartItem.save();
+
+            res.json({
+                success: true,
+                message: "Cart options updated successfully!",
+                data: cartItem
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+                error: error.message
+            });
+        }
+    }
+};
+
+// ✅ NEW: Remove specific option from cart item
+const removeCartOption = {
+    validation: {
+        body: Joi.object().keys({
+            cart_id: Joi.string().required(),
+            option_type: Joi.string().valid('record-book', 'video', 'writing-book').required()
+        })
+    },
+    handler: async (req, res) => {
+        try {
+            const { cart_id, option_type } = req.body;
+
+            const cartItem = await Cart.findById(cart_id).populate('product_id');
+
+            if (!cartItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Cart item not found!"
+                });
+            }
+
+            // Remove the option
+            cartItem.selected_options = cartItem.selected_options.filter(
+                opt => opt !== option_type
+            );
+
+            // If no options left, delete the cart item
+            if (cartItem.selected_options.length === 0) {
+                await Cart.findByIdAndDelete(cart_id);
+                return res.json({
+                    success: true,
+                    message: "Last option removed, cart item deleted!",
+                    data: null
+                });
+            }
+
+            // Recalculate total price
+            let total_price = 0;
+            for (const optType of cartItem.selected_options) {
+                const option = cartItem.product_id.options.find(o => o.type === optType);
+                if (option && option.is_available) {
+                    total_price += option.price;
+                }
+            }
+
+            cartItem.total_price = total_price;
+            await cartItem.save();
+
+            res.json({
+                success: true,
+                message: "Option removed from cart successfully!",
+                data: cartItem
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: "Server error",
+                error: error.message
+            });
+        }
+    }
+};
+
 module.exports = {
     addToCart,
     getCheckoutPageTempId,
@@ -306,6 +448,7 @@ module.exports = {
     getAllCart,
     getCartCount,
     updateQuantity,
-    deleteCartItem,
     removeCart,
+    updateCartOptions,
+    removeCartOption,
 };

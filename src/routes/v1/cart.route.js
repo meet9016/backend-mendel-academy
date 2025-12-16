@@ -3,17 +3,48 @@ const validate = require('../../middlewares/validate');
 const auth = require('../../middlewares/auth');
 const catchAsync = require('../../utils/catchAsync');
 const { cartController } = require('../../controllers');
-const upload = require('../../middlewares/upload');
 
 const router = express.Router();
 
-router.post('/create', validate(cartController.addToCart.validation), catchAsync(cartController.addToCart.handler));
+// ✅ Add/Update cart with selected options
+router.post('/create',
+    validate(cartController.addToCart.validation),
+    catchAsync(cartController.addToCart.handler)
+);
+
+// ✅ Get cart items
 router.get('/get', catchAsync(cartController.getCart.handler));
+
+// ✅ Get all carts (admin)
 router.get('/get-all-cart', catchAsync(cartController.getAllCart.handler));
-router.get('/get-checkout/:temp_id', catchAsync(cartController.getCheckoutPageTempId.handler));
+
+// ✅ Get checkout page data
+router.get('/get-checkout/:temp_id',
+    catchAsync(cartController.getCheckoutPageTempId.handler)
+);
+
+// ✅ Get cart count
 router.get("/count/:temp_id", catchAsync(cartController.getCartCount.handler));
-router.put('/update', catchAsync(cartController.updateQuantity.handler));
-router.delete('/delete/:_id', catchAsync(cartController.deleteCartItem.handler));
+
+// ✅ Update quantity
+router.put('/update',
+    validate(cartController.updateQuantity.validation),
+    catchAsync(cartController.updateQuantity.handler)
+);
+
+// ✅ Update selected options for a cart item
+router.put('/update-options',
+    validate(cartController.updateCartOptions.validation),
+    catchAsync(cartController.updateCartOptions.handler)
+);
+
+// ✅ Remove entire cart item (product)
 router.delete('/remove/:id', catchAsync(cartController.removeCart.handler));
+
+// ✅ Remove specific option from cart item
+router.delete('/remove-option',
+    validate(cartController.removeCartOption.validation),
+    catchAsync(cartController.removeCartOption.handler)
+);
 
 module.exports = router;
