@@ -21,11 +21,12 @@ const addToCart = {
         }),
     },
 
+    // controllers/cart.controller.js (addToCart handler)
     handler: async (req, res) => {
         try {
             const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
 
-            // ✅ Get product details to calculate price
+            // ✅ Get product details
             const product = await PreRecord.findById(product_id);
             if (!product) {
                 return res.status(404).send({
@@ -34,7 +35,7 @@ const addToCart = {
                 });
             }
 
-            // ✅ Calculate total price for selected options
+            // ✅ Calculate total price
             let total_price = 0;
             for (const optionType of selected_options) {
                 const option = product.options.find(o => o.type === optionType);
@@ -48,16 +49,18 @@ const addToCart = {
                 }
             }
 
-            // ✅ Check if product already exists in cart
+            // ✅ FIXED: Build query that matches the index
             const query = {
                 product_id,
                 bucket_type: true
             };
-            
+
             if (user_id) {
                 query.user_id = user_id;
+                query.temp_id = null; // ✅ Explicitly set temp_id to null for logged-in users
             } else if (temp_id) {
                 query.temp_id = temp_id;
+                query.user_id = null; // ✅ Explicitly set user_id to null for guests
             } else {
                 return res.status(400).send({
                     success: false,
@@ -68,15 +71,15 @@ const addToCart = {
             let cartItem = await Cart.findOne(query);
 
             if (cartItem) {
-                // ✅ Update existing cart item with new options
+                // ✅ Update existing cart item
                 cartItem.selected_options = selected_options;
                 cartItem.total_price = total_price;
                 await cartItem.save();
             } else {
                 // ✅ Create new cart item
                 cartItem = await Cart.create({
-                    temp_id,
-                    user_id,
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
                     product_id,
                     selected_options,
                     category_name,
@@ -88,19 +91,29 @@ const addToCart = {
             }
 
             // Count total items
-            const countQuery = user_id ? { user_id } : { temp_id };
-            countQuery.bucket_type = true;
+            const countQuery = user_id
+                ? { user_id, bucket_type: true }
+                : { temp_id, bucket_type: true };
             const totalItems = await Cart.countDocuments(countQuery);
 
             return res.status(200).send({
                 success: true,
-                message: "Product added to cart successfully",
+                message: cartItem.isNew ? "Product added to cart successfully" : "Cart updated successfully",
                 cart: cartItem,
                 count: totalItems,
             });
 
         } catch (error) {
             console.error('Add to cart error:', error);
+
+            // ✅ Better error handling for duplicate key
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "This product is already in your cart",
+                });
+            }
+
             return res.status(500).send({
                 success: false,
                 message: error.message,
