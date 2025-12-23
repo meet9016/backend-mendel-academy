@@ -11,7 +11,11 @@ const optionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  price: {
+  price_usd: {
+    type: Number,
+    required: true
+  },
+  price_inr: {
     type: Number,
     required: true
   },
@@ -47,7 +51,12 @@ const preRecordedSchema = mongoose.Schema(
     rating: {
       type: Number,
     },
-    price: {
+    // Auto-calculated from minimum option price
+    price_usd: {
+      type: Number,
+      required: true,
+    },
+    price_inr: {
       type: Number,
       required: true,
     },
@@ -77,6 +86,18 @@ const preRecordedSchema = mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Middleware to auto-calculate main price from minimum option price
+preRecordedSchema.pre('save', function (next) {
+  if (this.options && this.options.length > 0) {
+    const minPriceUSD = Math.min(...this.options.map(opt => opt.price_usd));
+    const minPriceINR = Math.min(...this.options.map(opt => opt.price_inr));
+
+    this.price_usd = minPriceUSD;
+    this.price_inr = minPriceINR;
+  }
+  next();
+});
 
 preRecordedSchema.plugin(toJSON);
 

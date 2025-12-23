@@ -3,8 +3,43 @@ const ApiError = require('../utils/ApiError');
 const { Cart, PreRecord } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
+const axios = require('axios');
 
-// ✅ UPDATED: Add/Update Cart with multiple options for same product
+// ✅ Helper to get user's country from IP
+const getUserCountryCode = async (ip) => {
+    try {
+        // ✅ Handle localhost/development environment
+        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
+            console.log('⚠️ Development environment detected (Cart). Using default India (IN) for testing.');
+            // 🔧 CHANGE THIS TO 'US' if you want to test USD in development
+            return 'IN';
+        }
+
+        const response = await axios.get(`http://ip-api.com/json/${ip}`);
+        const countryCode = response.data.countryCode || 'US';
+
+        console.log(`✅ Cart - Detected IP: ${ip}, Country Code: ${countryCode}`);
+
+        return countryCode;
+    } catch (err) {
+        console.error('❌ Cart IP detection error:', err.message);
+        // Default to India for errors (you can change to US if preferred)
+        return 'IN';
+    }
+};
+
+// ✅ Helper to determine display currency
+const getDisplayCurrency = (countryCode) => {
+    const currency = countryCode === 'IN' ? 'INR' : 'USD';
+    console.log(`💰 Cart - Display Currency for ${countryCode}: ${currency}`);
+    return currency;
+};
+
+// ✅ Helper to get price based on currency
+const getPriceForCurrency = (priceUsd, priceInr, currency) => {
+    return currency === 'INR' ? priceInr : priceUsd;
+};
+
 const addToCart = {
     validation: {
         body: Joi.object().keys({
@@ -21,10 +56,19 @@ const addToCart = {
         }),
     },
 
-    // controllers/cart.controller.js (addToCart handler)
     handler: async (req, res) => {
         try {
             const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
+
+            // ✅ Get user's country to determine currency
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+
+            console.log('🔍 Cart - Add to Cart IP:', ip);
+
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            console.log(`💳 Cart - Adding product with currency: ${displayCurrency}`);
 
             // ✅ Get product details
             const product = await PreRecord.findById(product_id);
@@ -35,12 +79,18 @@ const addToCart = {
                 });
             }
 
-            // ✅ Calculate total price
+            // ✅ Calculate total price based on user's currency
             let total_price = 0;
             for (const optionType of selected_options) {
                 const option = product.options.find(o => o.type === optionType);
                 if (option && option.is_available) {
-                    total_price += option.price;
+                    const optionPrice = getPriceForCurrency(
+                        option.price_usd,
+                        option.price_inr,
+                        displayCurrency
+                    );
+                    console.log(`  Option ${optionType}: ${displayCurrency} ${optionPrice} (USD: ${option.price_usd}, INR: ${option.price_inr})`);
+                    total_price += optionPrice;
                 } else {
                     return res.status(400).send({
                         success: false,
@@ -49,7 +99,8 @@ const addToCart = {
                 }
             }
 
-            // ✅ FIXED: Build query that matches the index
+            console.log(`  Total Price: ${displayCurrency} ${total_price}`);
+
             const query = {
                 product_id,
                 bucket_type: true
@@ -57,10 +108,10 @@ const addToCart = {
 
             if (user_id) {
                 query.user_id = user_id;
-                query.temp_id = null; // ✅ Explicitly set temp_id to null for logged-in users
+                query.temp_id = null;
             } else if (temp_id) {
                 query.temp_id = temp_id;
-                query.user_id = null; // ✅ Explicitly set user_id to null for guests
+                query.user_id = null;
             } else {
                 return res.status(400).send({
                     success: false,
@@ -71,12 +122,12 @@ const addToCart = {
             let cartItem = await Cart.findOne(query);
 
             if (cartItem) {
-                // ✅ Update existing cart item
                 cartItem.selected_options = selected_options;
                 cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency; // ✅ Store currency
                 await cartItem.save();
+                console.log('✅ Cart updated successfully');
             } else {
-                // ✅ Create new cart item
                 cartItem = await Cart.create({
                     temp_id: user_id ? null : temp_id,
                     user_id: user_id || null,
@@ -84,13 +135,14 @@ const addToCart = {
                     selected_options,
                     category_name,
                     total_price,
+                    currency: displayCurrency, // ✅ Store currency
                     duration,
                     bucket_type: true,
                     quantity: 1
                 });
+                console.log('✅ Cart item created successfully');
             }
 
-            // Count total items
             const countQuery = user_id
                 ? { user_id, bucket_type: true }
                 : { temp_id, bucket_type: true };
@@ -104,9 +156,8 @@ const addToCart = {
             });
 
         } catch (error) {
-            console.error('Add to cart error:', error);
+            console.error('❌ Add to cart error:', error);
 
-            // ✅ Better error handling for duplicate key
             if (error.code === 11000) {
                 return res.status(409).send({
                     success: false,
@@ -127,13 +178,19 @@ const getCheckoutPageTempId = {
         try {
             const { temp_id } = req.params;
 
+            // ✅ Get user's country to determine currency
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+
+            console.log('🔍 Cart - Checkout IP:', ip);
+
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
             let data = [];
 
-            // 1️⃣ Try using temp_id
             data = await Cart.find({ temp_id, bucket_type: true })
                 .populate('product_id');
 
-            // 2️⃣ If no data found → try using user_id
             if (data.length === 0) {
                 data = await Cart.find({ user_id: temp_id, bucket_type: true })
                     .populate('product_id');
@@ -146,18 +203,56 @@ const getCheckoutPageTempId = {
                 });
             }
 
-            // Calculate total
-            const totalAmount = data.reduce((sum, item) => {
+            // ✅ Convert prices to user's currency
+            const convertedData = data.map(item => {
+                const itemObj = item.toObject();
+
+                // If cart has stored currency and it matches display currency, use stored price
+                // Otherwise recalculate from product
+                if (itemObj.currency === displayCurrency) {
+                    console.log(`  ✓ Cart item already in ${displayCurrency}`);
+                    return itemObj;
+                }
+
+                console.log(`  ⚠️ Converting cart item from ${itemObj.currency} to ${displayCurrency}`);
+
+                // Recalculate price in correct currency
+                let total_price = 0;
+                if (itemObj.product_id && itemObj.product_id.options) {
+                    for (const optionType of itemObj.selected_options) {
+                        const option = itemObj.product_id.options.find(o => o.type === optionType);
+                        if (option) {
+                            total_price += getPriceForCurrency(
+                                option.price_usd,
+                                option.price_inr,
+                                displayCurrency
+                            );
+                        }
+                    }
+                }
+
+                return {
+                    ...itemObj,
+                    total_price,
+                    currency: displayCurrency
+                };
+            });
+
+            const totalAmount = convertedData.reduce((sum, item) => {
                 return sum + (item.total_price * item.quantity);
             }, 0);
 
+            console.log(`💰 Checkout Total: ${displayCurrency} ${totalAmount}`);
+
             return res.status(200).json({
                 success: true,
-                data,
-                totalAmount
+                data: convertedData,
+                totalAmount,
+                currency: displayCurrency
             });
 
         } catch (error) {
+            console.error('❌ Checkout error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Server error',
@@ -179,6 +274,14 @@ const getCart = {
                 });
             }
 
+            // ✅ Get user's country to determine currency
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+
+            console.log('🔍 Cart - Get Cart IP:', ip);
+
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
             const query = {
@@ -193,20 +296,57 @@ const getCart = {
                 .populate("product_id")
                 .lean();
 
-            const total = cartItems.reduce((acc, item) => {
+            console.log(`📦 Found ${cartItems.length} cart items`);
+
+            // ✅ Convert prices to user's currency
+            const convertedCart = cartItems.map((item, index) => {
+                if (item.currency === displayCurrency) {
+                    console.log(`  ✓ Item ${index + 1}: Already in ${displayCurrency}`);
+                    return item;
+                }
+
+                console.log(`  ⚠️ Item ${index + 1}: Converting from ${item.currency || 'unknown'} to ${displayCurrency}`);
+
+                // Recalculate price in correct currency
+                let total_price = 0;
+                if (item.product_id && item.product_id.options) {
+                    for (const optionType of item.selected_options) {
+                        const option = item.product_id.options.find(o => o.type === optionType);
+                        if (option) {
+                            total_price += getPriceForCurrency(
+                                option.price_usd,
+                                option.price_inr,
+                                displayCurrency
+                            );
+                        }
+                    }
+                }
+
+                return {
+                    ...item,
+                    total_price,
+                    currency: displayCurrency
+                };
+            });
+
+            const total = convertedCart.reduce((acc, item) => {
                 const price = Number(item.total_price) || 0;
                 const qty = Number(item.quantity) || 0;
                 return acc + price * qty;
             }, 0);
 
+            console.log(`💰 Cart Total: ${displayCurrency} ${total}`);
+
             return res.status(200).send({
                 success: true,
                 message: "Cart fetched successfully",
-                cart: cartItems,
-                total
+                cart: convertedCart,
+                total,
+                currency: displayCurrency
             });
 
         } catch (error) {
+            console.error('❌ Get cart error:', error);
             return res.status(500).send({
                 success: false,
                 message: error.message,
@@ -304,7 +444,6 @@ const updateQuantity = {
     },
 };
 
-// ✅ Remove entire cart item (product)
 const removeCart = {
     handler: async (req, res) => {
         try {
@@ -334,7 +473,6 @@ const removeCart = {
     },
 };
 
-// ✅ NEW: Update selected options for a cart item
 const updateCartOptions = {
     validation: {
         body: Joi.object().keys({
@@ -349,6 +487,14 @@ const updateCartOptions = {
         try {
             const { cart_id, selected_options } = req.body;
 
+            // ✅ Get user's country to determine currency
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+
+            console.log('🔍 Cart - Update Options IP:', ip);
+
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
             const cartItem = await Cart.findById(cart_id).populate('product_id');
 
             if (!cartItem) {
@@ -358,12 +504,16 @@ const updateCartOptions = {
                 });
             }
 
-            // Calculate new total price
+            // Calculate new total price in user's currency
             let total_price = 0;
             for (const optionType of selected_options) {
                 const option = cartItem.product_id.options.find(o => o.type === optionType);
                 if (option && option.is_available) {
-                    total_price += option.price;
+                    total_price += getPriceForCurrency(
+                        option.price_usd,
+                        option.price_inr,
+                        displayCurrency
+                    );
                 } else {
                     return res.status(400).json({
                         success: false,
@@ -372,8 +522,11 @@ const updateCartOptions = {
                 }
             }
 
+            console.log(`💰 Updated cart total: ${displayCurrency} ${total_price}`);
+
             cartItem.selected_options = selected_options;
             cartItem.total_price = total_price;
+            cartItem.currency = displayCurrency;
             await cartItem.save();
 
             res.json({
@@ -382,6 +535,7 @@ const updateCartOptions = {
                 data: cartItem
             });
         } catch (error) {
+            console.error('❌ Update cart options error:', error);
             res.status(500).json({
                 success: false,
                 message: "Server error",
@@ -391,7 +545,6 @@ const updateCartOptions = {
     }
 };
 
-// ✅ NEW: Remove specific option from cart item
 const removeCartOption = {
     validation: {
         body: Joi.object().keys({
@@ -403,6 +556,14 @@ const removeCartOption = {
         try {
             const { cart_id, option_type } = req.body;
 
+            // ✅ Get user's country to determine currency
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+
+            console.log('🔍 Cart - Remove Option IP:', ip);
+
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
             const cartItem = await Cart.findById(cart_id).populate('product_id');
 
             if (!cartItem) {
@@ -412,14 +573,13 @@ const removeCartOption = {
                 });
             }
 
-            // Remove the option
             cartItem.selected_options = cartItem.selected_options.filter(
                 opt => opt !== option_type
             );
 
-            // If no options left, delete the cart item
             if (cartItem.selected_options.length === 0) {
                 await Cart.findByIdAndDelete(cart_id);
+                console.log('🗑️ Last option removed, cart item deleted');
                 return res.json({
                     success: true,
                     message: "Last option removed, cart item deleted!",
@@ -427,16 +587,23 @@ const removeCartOption = {
                 });
             }
 
-            // Recalculate total price
+            // Recalculate total price in user's currency
             let total_price = 0;
             for (const optType of cartItem.selected_options) {
                 const option = cartItem.product_id.options.find(o => o.type === optType);
                 if (option && option.is_available) {
-                    total_price += option.price;
+                    total_price += getPriceForCurrency(
+                        option.price_usd,
+                        option.price_inr,
+                        displayCurrency
+                    );
                 }
             }
 
+            console.log(`💰 Updated cart total after removal: ${displayCurrency} ${total_price}`);
+
             cartItem.total_price = total_price;
+            cartItem.currency = displayCurrency;
             await cartItem.save();
 
             res.json({
@@ -445,6 +612,7 @@ const removeCartOption = {
                 data: cartItem
             });
         } catch (error) {
+            console.error('❌ Remove cart option error:', error);
             res.status(500).json({
                 success: false,
                 message: "Server error",

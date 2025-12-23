@@ -35,6 +35,12 @@ const cartSchema = mongoose.Schema(
             type: Number,
             required: true,
         },
+        // ✅ NEW: Store currency for the cart item
+        currency: {
+            type: String,
+            enum: ['USD', 'INR'],
+            default: 'USD'
+        },
         duration: {
             type: String,
         },
@@ -48,8 +54,7 @@ const cartSchema = mongoose.Schema(
     }
 );
 
-// ✅ FIXED: Single compound index that handles both guest and logged-in users
-// This allows same product with different temp_ids (different guests)
+// ✅ Compound index that handles both guest and logged-in users
 cartSchema.index(
     { product_id: 1, user_id: 1, temp_id: 1 },
     {

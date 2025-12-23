@@ -3,32 +3,78 @@ const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
 const { PreRecord } = require('../../models');
 const { handlePagination } = require('../../utils/helper');
+const { getLiveRates } = require('../../utils/exchangeRates.js');
+const axios = require('axios');
+
+// Helper function to get user's country and currency
+async function getCurrencyFromCountryCode(countryCode) {
+    try {
+        const { data } = await axios.get(
+            `https://restcountries.com/v3.1/alpha/${countryCode}`
+        );
+
+        const currencies = data[0].currencies;
+        const currencyCode = Object.keys(currencies)[0];
+
+        return currencyCode;
+    } catch (err) {
+        console.error("Currency lookup failed:", err);
+        return "USD";
+    }
+}
+
+const getUserCountryCode = async (ip) => {
+    try {
+        // ✅ Handle localhost/development environment
+        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
+            console.log('⚠️ Development environment detected. Using default India (IN) for testing.');
+            // 🔧 CHANGE THIS TO 'US' if you want to test USD in development
+            return {
+                country: "India",
+                countryCode: "IN",
+                currency: "INR"
+            };
+        }
+
+        const response = await axios.get(`http://ip-api.com/json/${ip}`);
+        const countryCode = response.data.countryCode;
+
+        console.log(`✅ Detected IP: ${ip}, Country: ${response.data.country}, Code: ${countryCode}`);
+
+        const currency = await getCurrencyFromCountryCode(countryCode);
+
+        return {
+            country: response.data.country,
+            countryCode,
+            currency
+        };
+
+    } catch (err) {
+        console.error('❌ IP detection error:', err.message);
+        // Default to India for errors (you can change to US if preferred)
+        return { country: "India", countryCode: "IN", currency: "INR" };
+    }
+};
+
+// ✅ Helper to determine display currency
+const getDisplayCurrency = (countryCode) => {
+    return countryCode === 'IN' ? 'INR' : 'USD';
+};
+
+// ✅ Helper to get price based on currency
+const getPriceForCurrency = (priceUsd, priceInr, currency) => {
+    return currency === 'INR' ? priceInr : priceUsd;
+};
 
 // Validation schema for options
 const optionSchema = Joi.object({
     type: Joi.string().valid('record-book', 'video', 'writing-book').required(),
     description: Joi.string().required(),
-    price: Joi.number().required(),
+    price_usd: Joi.number().required(),
+    price_inr: Joi.number().required(),
     features: Joi.array().items(Joi.string()).min(1).required(),
     is_available: Joi.boolean().default(true)
 });
-
-// ✅ HELPER: Validate main price = minimum option price
-const validateMainPrice = (mainPrice, options) => {
-    if (!options || options.length === 0) {
-        return; // No validation needed if no options
-    }
-
-    const optionPrices = options.map(opt => opt.price);
-    const minOptionPrice = Math.min(...optionPrices);
-
-    if (mainPrice !== minOptionPrice) {
-        throw new Error(
-            `Main price (${mainPrice}) must equal the minimum option price (${minOptionPrice}). ` +
-            `This ensures the "starting from" price is accurate.`
-        );
-    }
-};
 
 const createPreRecorded = {
     validation: {
@@ -39,55 +85,56 @@ const createPreRecorded = {
             subtitle: Joi.string().allow('', null).optional(),
             vimeo_video_id: Joi.string().trim().required(),
             rating: Joi.number().allow(null).optional(),
-            price: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
             duration: Joi.string().trim().required(),
             description: Joi.string().trim().required(),
             date: Joi.date().required(),
             status: Joi.string().valid('Active', 'Inactive').default('Active'),
-            options: Joi.array().items(optionSchema).optional().default([])
+            options: Joi.array().items(optionSchema).min(1).required()
         }),
     },
     handler: async (req, res) => {
         try {
-            // Convert price to number if it's a string
-            if (req.body.price && typeof req.body.price === 'string') {
-                req.body.price = parseFloat(req.body.price);
-            }
-
-            // Ensure options array exists and is properly formatted
-            if (!req.body.options || !Array.isArray(req.body.options)) {
-                req.body.options = [];
-            } else {
-                // Process each option
-                req.body.options = req.body.options.map((option, index) => {
-                    // Validate required fields
-                    if (!option.type || !option.description) {
-                        throw new Error(`Option ${index} is missing required fields (type or description)`);
-                    }
-
-                    // Ensure features is an array and filter out empty strings
-                    if (!Array.isArray(option.features)) {
-                        option.features = [];
-                    } else {
-                        option.features = option.features.filter(f => f && f.trim());
-                    }
-
-                    if (option.features.length === 0) {
-                        throw new Error(`Option ${index} must have at least one feature`);
-                    }
-
-                    return {
-                        type: option.type,
-                        description: option.description,
-                        price: typeof option.price === 'string' ? parseFloat(option.price) : option.price,
-                        features: option.features,
-                        is_available: option.is_available !== undefined ? option.is_available : true
-                    };
+            if (!req.body.options || !Array.isArray(req.body.options) || req.body.options.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "At least one option is required"
                 });
-
-                // ✅ Validate that main price = minimum option price
-                validateMainPrice(req.body.price, req.body.options);
             }
+
+            req.body.options = req.body.options.map((option, index) => {
+                if (!option.type || !option.description) {
+                    throw new Error(`Option ${index} is missing required fields (type or description)`);
+                }
+
+                if (!option.price_usd || !option.price_inr) {
+                    throw new Error(`Option ${index} must have both USD and INR prices`);
+                }
+
+                if (!Array.isArray(option.features)) {
+                    option.features = [];
+                } else {
+                    option.features = option.features.filter(f => f && f.trim());
+                }
+
+                if (option.features.length === 0) {
+                    throw new Error(`Option ${index} must have at least one feature`);
+                }
+
+                return {
+                    type: option.type,
+                    description: option.description,
+                    price_usd: typeof option.price_usd === 'string' ? parseFloat(option.price_usd) : option.price_usd,
+                    price_inr: typeof option.price_inr === 'string' ? parseFloat(option.price_inr) : option.price_inr,
+                    features: option.features,
+                    is_available: option.is_available !== undefined ? option.is_available : true
+                };
+            });
+
+            const minPriceUSD = Math.min(...req.body.options.map(opt => opt.price_usd));
+            const minPriceINR = Math.min(...req.body.options.map(opt => opt.price_inr));
+
+            req.body.price_usd = minPriceUSD;
+            req.body.price_inr = minPriceINR;
 
             const pre_recorded = await PreRecord.create(req.body);
 
@@ -108,14 +155,93 @@ const createPreRecorded = {
 
 const getAllPreRecorded = {
     handler: async (req, res) => {
-        const { status, search } = req.query;
+        try {
+            const { status, search } = req.query;
 
-        const query = {};
+            const ip =
+                req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+                req.socket.remoteAddress;
 
-        if (status) query.status = status;
-        if (search) query.title = { $regex: search, $options: "i" };
+            console.log('🔍 Incoming IP:', ip);
 
-        await handlePagination(PreRecord, req, res, query);
+            const user = await getUserCountryCode(ip);
+
+            console.log('🌍 User Location:', user);
+
+            // ✅ Determine display currency based on country
+            const displayCurrency = getDisplayCurrency(user.countryCode);
+
+            console.log('💰 Display Currency:', displayCurrency);
+
+            const query = {};
+
+            if (status) query.status = status;
+            if (search) query.title = { $regex: search, $options: "i" };
+
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            const totalRecords = await PreRecord.countDocuments(query);
+            const data = await PreRecord.find(query)
+                .skip(skip)
+                .limit(limit)
+                .sort({ createdAt: -1 });
+
+            // ✅ Convert prices for each record
+            const convertedData = data.map(record => {
+                const recordObj = record.toObject();
+
+                const displayPrice = getPriceForCurrency(
+                    recordObj.price_usd,
+                    recordObj.price_inr,
+                    displayCurrency
+                );
+
+                const convertedOptions = recordObj.options.map(option => {
+                    const optionPrice = getPriceForCurrency(
+                        option.price_usd,
+                        option.price_inr,
+                        displayCurrency
+                    );
+
+                    return {
+                        type: option.type,
+                        description: option.description,
+                        price: optionPrice,
+                        features: option.features,
+                        is_available: option.is_available
+                    };
+                });
+
+                return {
+                    ...recordObj,
+                    price: displayPrice,
+                    currency: displayCurrency,
+                    user_country: user.country,
+                    options: convertedOptions
+                };
+            });
+
+            res.status(200).json({
+                success: true,
+                data: convertedData,
+                currency: displayCurrency, // ✅ Added for frontend reference
+                pagination: {
+                    page,
+                    limit,
+                    totalRecords,
+                    totalPages: Math.ceil(totalRecords / limit)
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error in getAllPreRecorded:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || "Failed to fetch pre-recorded courses"
+            });
+        }
     }
 }
 
@@ -124,13 +250,27 @@ const getPreRecordedById = {
         try {
             const { _id } = req.params;
 
-            // Validate MongoDB ObjectId format
             if (!_id.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({
                     success: false,
                     message: "Invalid ID format"
                 });
             }
+
+            const ip =
+                req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+                req.socket.remoteAddress;
+
+            console.log('🔍 Incoming IP (getById):', ip);
+
+            const user = await getUserCountryCode(ip);
+
+            console.log('🌍 User Location (getById):', user);
+
+            // ✅ Determine display currency based on country
+            const displayCurrency = getDisplayCurrency(user.countryCode);
+
+            console.log('💰 Display Currency (getById):', displayCurrency);
 
             const pre_recorded = await PreRecord.findById(_id);
 
@@ -141,11 +281,43 @@ const getPreRecordedById = {
                 });
             }
 
+            const recordObj = pre_recorded.toObject();
+
+            const displayPrice = getPriceForCurrency(
+                recordObj.price_usd,
+                recordObj.price_inr,
+                displayCurrency
+            );
+
+            const convertedOptions = recordObj.options.map(option => {
+                const optionPrice = getPriceForCurrency(
+                    option.price_usd,
+                    option.price_inr,
+                    displayCurrency
+                );
+
+                return {
+                    type: option.type,
+                    description: option.description,
+                    price: optionPrice,
+                    features: option.features,
+                    is_available: option.is_available
+                };
+            });
+
             res.status(200).json({
                 success: true,
-                data: pre_recorded
+                data: {
+                    ...recordObj,
+                    price: displayPrice,
+                    currency: displayCurrency,
+                    user_country: user.country,
+                    user_currency: displayCurrency,
+                    options: convertedOptions
+                }
             });
         } catch (error) {
+            console.error('❌ Error in getPreRecordedById:', error);
             res.status(500).json({
                 success: false,
                 message: "Internal Server Error",
@@ -158,16 +330,15 @@ const getPreRecordedById = {
 const updatePreRecorded = {
     validation: {
         body: Joi.object().keys({
-            title: Joi.string().trim().required(),
+            title: Joi.string().trim().optional(),
             category: Joi.string().allow('', null).optional(),
             total_reviews: Joi.number().allow(null).optional(),
             subtitle: Joi.string().allow('', null).optional(),
-            vimeo_video_id: Joi.string().trim().required(),
+            vimeo_video_id: Joi.string().trim().optional(),
             rating: Joi.number().allow(null).optional(),
-            price: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
-            duration: Joi.string().trim().required(),
-            description: Joi.string().trim().required(),
-            date: Joi.date().required(),
+            duration: Joi.string().trim().optional(),
+            description: Joi.string().trim().optional(),
+            date: Joi.date().optional(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
             options: Joi.array().items(optionSchema).optional()
         }),
@@ -175,31 +346,6 @@ const updatePreRecorded = {
     handler: async (req, res) => {
         try {
             const { _id } = req.params;
-
-            // Convert price to number if it's a string
-            if (req.body.price && typeof req.body.price === 'string') {
-                req.body.price = parseFloat(req.body.price);
-            }
-
-            // Process options if provided
-            if (req.body.options && Array.isArray(req.body.options)) {
-                req.body.options = req.body.options.map(option => {
-                    const features = Array.isArray(option.features)
-                        ? option.features.filter(f => f && f.trim())
-                        : [];
-
-                    return {
-                        type: option.type,
-                        description: option.description,
-                        price: typeof option.price === 'string' ? parseFloat(option.price) : option.price,
-                        features: features,
-                        is_available: option.is_available !== undefined ? option.is_available : true
-                    };
-                });
-
-                // ✅ Validate that main price = minimum option price
-                validateMainPrice(req.body.price, req.body.options);
-            }
 
             const preRecordExist = await PreRecord.findById(_id);
 
@@ -215,6 +361,44 @@ const updatePreRecorded = {
                 if (titleExist) {
                     throw new ApiError(httpStatus.BAD_REQUEST, 'PreRecord with this title already exists');
                 }
+            }
+
+            if (req.body.options && Array.isArray(req.body.options)) {
+                if (req.body.options.length === 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "At least one option is required"
+                    });
+                }
+
+                req.body.options = req.body.options.map((option, index) => {
+                    if (!option.price_usd || !option.price_inr) {
+                        throw new Error(`Option ${index} must have both USD and INR prices`);
+                    }
+
+                    const features = Array.isArray(option.features)
+                        ? option.features.filter(f => f && f.trim())
+                        : [];
+
+                    if (features.length === 0) {
+                        throw new Error(`Option ${index} must have at least one feature`);
+                    }
+
+                    return {
+                        type: option.type,
+                        description: option.description,
+                        price_usd: typeof option.price_usd === 'string' ? parseFloat(option.price_usd) : option.price_usd,
+                        price_inr: typeof option.price_inr === 'string' ? parseFloat(option.price_inr) : option.price_inr,
+                        features: features,
+                        is_available: option.is_available !== undefined ? option.is_available : true
+                    };
+                });
+
+                const minPriceUSD = Math.min(...req.body.options.map(opt => opt.price_usd));
+                const minPriceINR = Math.min(...req.body.options.map(opt => opt.price_inr));
+
+                req.body.price_usd = minPriceUSD;
+                req.body.price_inr = minPriceINR;
             }
 
             const preRecord = await PreRecord.findByIdAndUpdate(
