@@ -41,8 +41,8 @@ router.put('/update-options',
 // ✅ Remove entire cart item (product)
 router.delete('/remove/:id', catchAsync(cartController.removeCart.handler));
 
-// ✅ Remove specific option from cart item
-router.delete('/remove-option',
+// ✅ FIXED: Changed from DELETE to POST for remove-option
+router.post('/remove-option',
     validate(cartController.removeCartOption.validation),
     catchAsync(cartController.removeCartOption.handler)
 );

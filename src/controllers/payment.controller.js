@@ -23,6 +23,7 @@ const createPayment = {
       phone: Joi.string().allow("").optional(),
       plan_id: Joi.string(),
       user_id: Joi.string(),
+      guest_id: Joi.string(),
       amount: Joi.number().required(),
       currency: Joi.string().allow(""),
       payment_method: Joi.string().valid('Razorpay', 'Stripe', 'Paypal').default('Razorpay'),
@@ -34,17 +35,14 @@ const createPayment = {
     try {
       const { full_name = "", email = "", phone = "", plan_id, user_id, guest_id, amount, payment_method, payment_status, currency } = req.body;
 
-      // 1️⃣ Detect country if not sent
-      let userCountry = currency;
-      if (!userCountry) {
-        const ip =
-          req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-          req.socket.remoteAddress;
-        userCountry = await getCountryFromIP(ip);
-      }
+      // 1️⃣ Detect country if currency not sent
+      let finalCurrency = currency;
 
-      // 2️⃣ Convert Country → Currency Code
-      let currencys = (await getCurrencyFromCountry(userCountry)).toUpperCase();
+      if (!finalCurrency) {
+        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+        const userCountry = await getCountryFromIP(ip);
+        finalCurrency = (await getCurrencyFromCountry(userCountry)).toUpperCase();
+      }
 
       // ⚠ Razorpay supports a limited set of currencies
       const supportedCurrencies = [
@@ -52,14 +50,14 @@ const createPayment = {
         "CAD", "MYR", "QAR", "BHD", "OMR", "NZD"
       ];
 
-      if (!supportedCurrencies.includes(currencys)) {
-        currencys = "USD"; // fallback
+      if (!supportedCurrencies.includes(finalCurrency)) {
+        finalCurrency = "USD"; // fallback
       }
 
       // Razorpay needs amount in smallest currency unit
       const options = {
         amount: Math.round(amount * 100),
-        currency,
+        currency: finalCurrency, // ✅ Use finalCurrency here
         receipt: `receipt_${Date.now()}`,
       };
 
@@ -72,10 +70,10 @@ const createPayment = {
         email,
         phone,
         plan_id,
-        user_id,
+        user_id: user_id || null,
         guest_id: !user_id ? guest_id : null,
         amount,
-        currency,
+        currency: finalCurrency, // ✅ Use finalCurrency here
         transaction_id: order.id,
         payment_method,
         payment_status,

@@ -267,7 +267,6 @@ const getPreRecordedById = {
 
             console.log('🌍 User Location (getById):', user);
 
-            // ✅ Determine display currency based on country
             const displayCurrency = getDisplayCurrency(user.countryCode);
 
             console.log('💰 Display Currency (getById):', displayCurrency);
@@ -283,37 +282,35 @@ const getPreRecordedById = {
 
             const recordObj = pre_recorded.toObject();
 
+            // ✅ For editing: keep both USD and INR prices in options
+            // Don't convert, send raw data with both currencies
+            const optionsWithBothPrices = recordObj.options.map(option => ({
+                type: option.type,
+                description: option.description,
+                price_usd: option.price_usd,  // Keep original USD price
+                price_inr: option.price_inr,  // Keep original INR price
+                features: option.features,
+                is_available: option.is_available
+            }));
+
+            // Calculate display price for preview (optional)
             const displayPrice = getPriceForCurrency(
                 recordObj.price_usd,
                 recordObj.price_inr,
                 displayCurrency
             );
 
-            const convertedOptions = recordObj.options.map(option => {
-                const optionPrice = getPriceForCurrency(
-                    option.price_usd,
-                    option.price_inr,
-                    displayCurrency
-                );
-
-                return {
-                    type: option.type,
-                    description: option.description,
-                    price: optionPrice,
-                    features: option.features,
-                    is_available: option.is_available
-                };
-            });
-
             res.status(200).json({
                 success: true,
                 data: {
                     ...recordObj,
-                    price: displayPrice,
+                    price: displayPrice, // For display purposes
+                    price_usd: recordObj.price_usd, // ✅ Keep original USD
+                    price_inr: recordObj.price_inr, // ✅ Keep original INR
                     currency: displayCurrency,
                     user_country: user.country,
                     user_currency: displayCurrency,
-                    options: convertedOptions
+                    options: optionsWithBothPrices // ✅ Send both prices
                 }
             });
         } catch (error) {

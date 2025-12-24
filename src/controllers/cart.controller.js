@@ -5,37 +5,23 @@ const Joi = require('joi');
 const mongoose = require("mongoose");
 const axios = require('axios');
 
-// ✅ Helper to get user's country from IP
 const getUserCountryCode = async (ip) => {
     try {
-        // ✅ Handle localhost/development environment
         if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-            console.log('⚠️ Development environment detected (Cart). Using default India (IN) for testing.');
-            // 🔧 CHANGE THIS TO 'US' if you want to test USD in development
             return 'IN';
         }
 
         const response = await axios.get(`http://ip-api.com/json/${ip}`);
-        const countryCode = response.data.countryCode || 'US';
-
-        console.log(`✅ Cart - Detected IP: ${ip}, Country Code: ${countryCode}`);
-
-        return countryCode;
+        return response.data.countryCode || 'US';
     } catch (err) {
-        console.error('❌ Cart IP detection error:', err.message);
-        // Default to India for errors (you can change to US if preferred)
         return 'IN';
     }
 };
 
-// ✅ Helper to determine display currency
 const getDisplayCurrency = (countryCode) => {
-    const currency = countryCode === 'IN' ? 'INR' : 'USD';
-    console.log(`💰 Cart - Display Currency for ${countryCode}: ${currency}`);
-    return currency;
+    return countryCode === 'IN' ? 'INR' : 'USD';
 };
 
-// ✅ Helper to get price based on currency
 const getPriceForCurrency = (priceUsd, priceInr, currency) => {
     return currency === 'INR' ? priceInr : priceUsd;
 };
@@ -60,17 +46,10 @@ const addToCart = {
         try {
             const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
 
-            // ✅ Get user's country to determine currency
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-
-            console.log('🔍 Cart - Add to Cart IP:', ip);
-
             const countryCode = await getUserCountryCode(ip);
             const displayCurrency = getDisplayCurrency(countryCode);
 
-            console.log(`💳 Cart - Adding product with currency: ${displayCurrency}`);
-
-            // ✅ Get product details
             const product = await PreRecord.findById(product_id);
             if (!product) {
                 return res.status(404).send({
@@ -79,7 +58,6 @@ const addToCart = {
                 });
             }
 
-            // ✅ Calculate total price based on user's currency
             let total_price = 0;
             for (const optionType of selected_options) {
                 const option = product.options.find(o => o.type === optionType);
@@ -89,7 +67,6 @@ const addToCart = {
                         option.price_inr,
                         displayCurrency
                     );
-                    console.log(`  Option ${optionType}: ${displayCurrency} ${optionPrice} (USD: ${option.price_usd}, INR: ${option.price_inr})`);
                     total_price += optionPrice;
                 } else {
                     return res.status(400).send({
@@ -98,8 +75,6 @@ const addToCart = {
                     });
                 }
             }
-
-            console.log(`  Total Price: ${displayCurrency} ${total_price}`);
 
             const query = {
                 product_id,
@@ -124,9 +99,8 @@ const addToCart = {
             if (cartItem) {
                 cartItem.selected_options = selected_options;
                 cartItem.total_price = total_price;
-                cartItem.currency = displayCurrency; // ✅ Store currency
+                cartItem.currency = displayCurrency;
                 await cartItem.save();
-                console.log('✅ Cart updated successfully');
             } else {
                 cartItem = await Cart.create({
                     temp_id: user_id ? null : temp_id,
@@ -135,12 +109,11 @@ const addToCart = {
                     selected_options,
                     category_name,
                     total_price,
-                    currency: displayCurrency, // ✅ Store currency
+                    currency: displayCurrency,
                     duration,
                     bucket_type: true,
                     quantity: 1
                 });
-                console.log('✅ Cart item created successfully');
             }
 
             const countQuery = user_id
@@ -156,8 +129,6 @@ const addToCart = {
             });
 
         } catch (error) {
-            console.error('❌ Add to cart error:', error);
-
             if (error.code === 11000) {
                 return res.status(409).send({
                     success: false,
@@ -177,22 +148,21 @@ const getCheckoutPageTempId = {
     handler: async (req, res) => {
         try {
             const { temp_id } = req.params;
+            const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
-            // ✅ Get user's country to determine currency
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-
-            console.log('🔍 Cart - Checkout IP:', ip);
-
             const countryCode = await getUserCountryCode(ip);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             let data = [];
 
-            data = await Cart.find({ temp_id, bucket_type: true })
-                .populate('product_id');
+            if (isObjectId) {
+                data = await Cart.find({ user_id: temp_id, bucket_type: true })
+                    .populate('product_id');
+            }
 
             if (data.length === 0) {
-                data = await Cart.find({ user_id: temp_id, bucket_type: true })
+                data = await Cart.find({ temp_id, bucket_type: true })
                     .populate('product_id');
             }
 
@@ -203,20 +173,13 @@ const getCheckoutPageTempId = {
                 });
             }
 
-            // ✅ Convert prices to user's currency
             const convertedData = data.map(item => {
                 const itemObj = item.toObject();
 
-                // If cart has stored currency and it matches display currency, use stored price
-                // Otherwise recalculate from product
                 if (itemObj.currency === displayCurrency) {
-                    console.log(`  ✓ Cart item already in ${displayCurrency}`);
                     return itemObj;
                 }
 
-                console.log(`  ⚠️ Converting cart item from ${itemObj.currency} to ${displayCurrency}`);
-
-                // Recalculate price in correct currency
                 let total_price = 0;
                 if (itemObj.product_id && itemObj.product_id.options) {
                     for (const optionType of itemObj.selected_options) {
@@ -242,8 +205,6 @@ const getCheckoutPageTempId = {
                 return sum + (item.total_price * item.quantity);
             }, 0);
 
-            console.log(`💰 Checkout Total: ${displayCurrency} ${totalAmount}`);
-
             return res.status(200).json({
                 success: true,
                 data: convertedData,
@@ -252,7 +213,6 @@ const getCheckoutPageTempId = {
             });
 
         } catch (error) {
-            console.error('❌ Checkout error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Server error',
@@ -274,11 +234,7 @@ const getCart = {
                 });
             }
 
-            // ✅ Get user's country to determine currency
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-
-            console.log('🔍 Cart - Get Cart IP:', ip);
-
             const countryCode = await getUserCountryCode(ip);
             const displayCurrency = getDisplayCurrency(countryCode);
 
@@ -296,18 +252,11 @@ const getCart = {
                 .populate("product_id")
                 .lean();
 
-            console.log(`📦 Found ${cartItems.length} cart items`);
-
-            // ✅ Convert prices to user's currency
-            const convertedCart = cartItems.map((item, index) => {
+            const convertedCart = cartItems.map(item => {
                 if (item.currency === displayCurrency) {
-                    console.log(`  ✓ Item ${index + 1}: Already in ${displayCurrency}`);
                     return item;
                 }
 
-                console.log(`  ⚠️ Item ${index + 1}: Converting from ${item.currency || 'unknown'} to ${displayCurrency}`);
-
-                // Recalculate price in correct currency
                 let total_price = 0;
                 if (item.product_id && item.product_id.options) {
                     for (const optionType of item.selected_options) {
@@ -335,8 +284,6 @@ const getCart = {
                 return acc + price * qty;
             }, 0);
 
-            console.log(`💰 Cart Total: ${displayCurrency} ${total}`);
-
             return res.status(200).send({
                 success: true,
                 message: "Cart fetched successfully",
@@ -346,7 +293,6 @@ const getCart = {
             });
 
         } catch (error) {
-            console.error('❌ Get cart error:', error);
             return res.status(500).send({
                 success: false,
                 message: error.message,
@@ -371,7 +317,7 @@ const getAllCart = {
             });
         }
     }
-}
+};
 
 const getCartCount = {
     handler: async (req, res) => {
@@ -435,7 +381,6 @@ const updateQuantity = {
                 data: cartItem
             });
         } catch (error) {
-            console.error('Update quantity error:', error);
             res.status(error.statusCode || 500).json({
                 success: false,
                 message: error.message || 'Server error'
@@ -487,11 +432,7 @@ const updateCartOptions = {
         try {
             const { cart_id, selected_options } = req.body;
 
-            // ✅ Get user's country to determine currency
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-
-            console.log('🔍 Cart - Update Options IP:', ip);
-
             const countryCode = await getUserCountryCode(ip);
             const displayCurrency = getDisplayCurrency(countryCode);
 
@@ -504,7 +445,6 @@ const updateCartOptions = {
                 });
             }
 
-            // Calculate new total price in user's currency
             let total_price = 0;
             for (const optionType of selected_options) {
                 const option = cartItem.product_id.options.find(o => o.type === optionType);
@@ -522,8 +462,6 @@ const updateCartOptions = {
                 }
             }
 
-            console.log(`💰 Updated cart total: ${displayCurrency} ${total_price}`);
-
             cartItem.selected_options = selected_options;
             cartItem.total_price = total_price;
             cartItem.currency = displayCurrency;
@@ -535,7 +473,6 @@ const updateCartOptions = {
                 data: cartItem
             });
         } catch (error) {
-            console.error('❌ Update cart options error:', error);
             res.status(500).json({
                 success: false,
                 message: "Server error",
@@ -556,11 +493,7 @@ const removeCartOption = {
         try {
             const { cart_id, option_type } = req.body;
 
-            // ✅ Get user's country to determine currency
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-
-            console.log('🔍 Cart - Remove Option IP:', ip);
-
             const countryCode = await getUserCountryCode(ip);
             const displayCurrency = getDisplayCurrency(countryCode);
 
@@ -579,15 +512,14 @@ const removeCartOption = {
 
             if (cartItem.selected_options.length === 0) {
                 await Cart.findByIdAndDelete(cart_id);
-                console.log('🗑️ Last option removed, cart item deleted');
                 return res.json({
                     success: true,
                     message: "Last option removed, cart item deleted!",
-                    data: null
+                    data: null,
+                    deleted: true
                 });
             }
 
-            // Recalculate total price in user's currency
             let total_price = 0;
             for (const optType of cartItem.selected_options) {
                 const option = cartItem.product_id.options.find(o => o.type === optType);
@@ -600,8 +532,6 @@ const removeCartOption = {
                 }
             }
 
-            console.log(`💰 Updated cart total after removal: ${displayCurrency} ${total_price}`);
-
             cartItem.total_price = total_price;
             cartItem.currency = displayCurrency;
             await cartItem.save();
@@ -609,10 +539,10 @@ const removeCartOption = {
             res.json({
                 success: true,
                 message: "Option removed from cart successfully!",
-                data: cartItem
+                data: cartItem,
+                deleted: false
             });
         } catch (error) {
-            console.error('❌ Remove cart option error:', error);
             res.status(500).json({
                 success: false,
                 message: "Server error",
