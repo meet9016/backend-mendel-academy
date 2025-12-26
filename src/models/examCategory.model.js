@@ -3,7 +3,6 @@ const { toJSON } = require('./plugins');
 
 const examListSchema = mongoose.Schema(
   {
-    // Example: "USMLE Program" / "International Exams"
     category_name: {
       type: String,
       required: true,
@@ -17,7 +16,7 @@ const examListSchema = mongoose.Schema(
       },
       title: {
         type: String,
-        trim: true, // ✅ new field
+        trim: true,
       },
       country: {
         type: String,
@@ -39,19 +38,16 @@ const examListSchema = mongoose.Schema(
         default: "Active",
       },
       image: { type: String },
-    },],
+    }],
     choose_plan_list: [{
       plan_pricing_dollar: {
         type: Number,
-        // required: true,
       },
       plan_pricing_inr: {
         type: Number,
-        // required: true,
       },
       plan_month: {
-        type: String,
-        // required: true,
+        type: Number, 
       },
       plan_type: {
         type: String,
@@ -59,7 +55,6 @@ const examListSchema = mongoose.Schema(
       },
       plan_sub_title: [{
         type: String,
-        // required: true,
       }],
       most_popular: {
         type: Boolean,
@@ -75,12 +70,8 @@ const examListSchema = mongoose.Schema(
   }
 );
 
-// add plugin that converts mongoose to json
 examListSchema.plugin(toJSON);
 
-/**
- * @typedef ExamList
- */
 const ExamList = mongoose.model('ExamList', examListSchema);
 
 module.exports = ExamList;

@@ -14,15 +14,51 @@ const cartSchema = mongoose.Schema(
             required: false,
             index: true,
         },
+
+        // ✅ Cart type to differentiate between PreRecord and Exam Plans
+        cart_type: {
+            type: String,
+            enum: ['prerecord', 'exam_plan'],
+            default: 'prerecord',
+            required: true,
+        },
+
+        // For PreRecord products
         product_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "PreRecord",
-            required: true,
+            required: function () {
+                return this.cart_type === 'prerecord';
+            },
         },
         selected_options: [{
             type: String,
             enum: ['record-book', 'video', 'writing-book']
         }],
+
+        // ✅ For Exam Plans
+        exam_category_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "ExamList",
+            required: function () {
+                return this.cart_type === 'exam_plan';
+            },
+        },
+        plan_id: {
+            type: String,
+            required: function () {
+                return this.cart_type === 'exam_plan';
+            },
+        },
+        plan_details: {
+            plan_type: String,
+            plan_month: Number, // ✅ CHANGED from plan_day to plan_month
+            plan_pricing_dollar: Number,
+            plan_pricing_inr: Number,
+            plan_sub_title: [String],
+        },
+
+        // Common fields
         category_name: {
             type: String,
             required: true,
@@ -35,7 +71,6 @@ const cartSchema = mongoose.Schema(
             type: Number,
             required: true,
         },
-        // ✅ NEW: Store currency for the cart item
         currency: {
             type: String,
             enum: ['USD', 'INR'],
@@ -54,9 +89,9 @@ const cartSchema = mongoose.Schema(
     }
 );
 
-// ✅ Compound index that handles both guest and logged-in users
+// ✅ Updated compound index for both types
 cartSchema.index(
-    { product_id: 1, user_id: 1, temp_id: 1 },
+    { cart_type: 1, product_id: 1, exam_category_id: 1, plan_id: 1, user_id: 1, temp_id: 1 },
     {
         unique: true,
         partialFilterExpression: { bucket_type: true }

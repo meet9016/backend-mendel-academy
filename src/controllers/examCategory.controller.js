@@ -40,19 +40,41 @@ async function getCurrencyFromCountryCode(countryCode) {
 
 const getUserCountryCode = async (ip) => {
   try {
-    const response = await axios.get(`http://ip-api.com/json/${ip}`);
-    const countryCode = response.data.countryCode; // CA
+    console.log("🔍 Detecting IP:", ip); // Debug log
 
-    const currency = await getCurrencyFromCountryCode(countryCode); // CAD
+    // ✅ For localhost/development, default to India
+    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
+      console.log("✅ Localhost detected, defaulting to India");
+      return {
+        country: "India",
+        countryCode: "IN",
+        currency: "INR" // ✅ Changed from default currency lookup
+      };
+    }
+
+    // For production, use IP API
+    const response = await axios.get(`http://ip-api.com/json/${ip}`);
+    const countryCode = response.data.countryCode;
+
+    console.log("🌍 Country detected:", response.data.country, countryCode);
+
+    // ✅ Direct mapping instead of API call
+    const currency = countryCode === "IN" ? "INR" : "USD";
 
     return {
       country: response.data.country,
       countryCode,
-      currency // dynamic
+      currency
     };
 
   } catch (err) {
-    return { country: "Unknown", countryCode: "US", currency: "USD" };
+    console.error("❌ IP detection error:", err);
+    // ✅ Default to India on error
+    return {
+      country: "India",
+      countryCode: "IN",
+      currency: "INR"
+    };
   }
 };
 
@@ -77,7 +99,7 @@ const createExamCategory = {
         Joi.object({
           plan_pricing_dollar: Joi.number().allow("").optional(),
           plan_pricing_inr: Joi.number().allow("").optional(),
-          plan_month: Joi.string(),
+          plan_month: Joi.number().required(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
@@ -230,12 +252,11 @@ const getExamCategoryById = {
         req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
         req.socket.remoteAddress;
 
-      // Detect country + currency
-      const user = await getUserCountryCode(ip);
-      // user = { country: "United States", currency: "USD" }
+      console.log("📍 Request IP:", ip); // Debug log
 
-      // Fetch live rates
-      const rates = await getLiveRates(); // gives { USD: 1, INR: 83, AUD: 1.52, ... }
+      // Detect country + currency
+      const userInfo = await getUserCountryCode(ip);
+      console.log("💰 User Info:", userInfo); // Debug log
 
       const { _id } = req.params;
       const category = await ExamCategory.findById(_id);
@@ -243,27 +264,12 @@ const getExamCategoryById = {
       if (!category)
         return res.status(404).json({ message: "Category not found" });
 
-      // Convert all plans
-      const updatedPlans = category.choose_plan_list.map((plan) => {
-        const basePriceUSD = Number(plan.plan_pricing); // price stored in DB
-
-        // Convert price dynamically
-        const convertedPrice = Math.round(
-          basePriceUSD * (rates[user.currency] || 1)
-        );
-
-        return {
-          ...plan._doc,
-          plan_pricing: convertedPrice,
-          currency: user.currency, // USD / INR / AUD
-        };
-      });
-
+      // ✅ Return with user currency info
       res.status(200).json({
         ...category._doc,
-        user_country: user.country,
-        user_currency: user.currency,
-        choose_plan_list: updatedPlans,
+        user_country: userInfo.country,
+        user_currency: userInfo.currency, // INR or USD
+        choose_plan_list: category.choose_plan_list, // Prices stay as is
       });
 
     } catch (err) {
@@ -372,7 +378,7 @@ const updateExamCategory = {
           _id: Joi.string().optional(),
           plan_pricing_dollar: Joi.number().allow("").optional(),
           plan_pricing_inr: Joi.number().allow("").optional(),
-          plan_month: Joi.string(),
+          plan_month: Joi.number().required(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
