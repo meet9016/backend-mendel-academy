@@ -11,6 +11,7 @@ const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
 const faqRoute = require('./faq.route')
 const contactusRoute = require('./contactUs.route')
+const hyperSpecialistRoute = require('./pathology/hyperSpecialist.route')
 
 const router = express.Router();
 
@@ -62,6 +63,10 @@ const defaultRoutes = [
   {
     path: '/upcomming-program',
     route: upcommingprogramRoute
+  },
+  {
+    path: '/hyperSpecialist',
+    route: hyperSpecialistRoute
   }
 ];
 

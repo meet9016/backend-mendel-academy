@@ -10,3 +10,4 @@ module.exports.paymentController = require('./payment.controller');
 module.exports.faqController = require('./faq.controller');
 module.exports.contactUsController = require('./contact.controller');
 module.exports.upCommingProgramController = require('./pathology/upComingProgram.controller');
+module.exports.hyperSpecialistController = require('./pathology/hyperSpecialist.controller');
