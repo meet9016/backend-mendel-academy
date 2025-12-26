@@ -77,7 +77,7 @@ const createExamCategory = {
         Joi.object({
           plan_pricing_dollar: Joi.number().allow("").optional(),
           plan_pricing_inr: Joi.number().allow("").optional(),
-          plan_day: Joi.string(),
+          plan_month: Joi.string(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
@@ -370,8 +370,9 @@ const updateExamCategory = {
       choose_plan_list: Joi.array().items(
         Joi.object({
           _id: Joi.string().optional(),
-          plan_pricing: Joi.string().allow("").optional(),
-          plan_day: Joi.string(),
+          plan_pricing_dollar: Joi.number().allow("").optional(),
+          plan_pricing_inr: Joi.number().allow("").optional(),
+          plan_month: Joi.string(),
           plan_type: Joi.string().trim().required(),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
@@ -445,15 +446,42 @@ const updateExamCategory = {
 
       if (choose_plan_list && Array.isArray(choose_plan_list)) {
         choose_plan_list.forEach(plan => {
+
+          // 🟢 UPDATE EXISTING PLAN
           if (plan._id) {
             const existingPlan = existingCategory.choose_plan_list.id(plan._id);
+
             if (existingPlan) {
-              existingPlan.plan_pricing = plan.plan_pricing || existingPlan.plan_pricing;
-              existingPlan.plan_day = plan.plan_day || existingPlan.plan_day;
-              existingPlan.plan_type = plan.plan_type || existingPlan.plan_type;
-              existingPlan.plan_sub_title = plan.plan_sub_title || existingPlan.plan_sub_title;
-              existingPlan.most_popular = plan.most_popular ?? existingPlan.most_popular;
+              if (plan.plan_pricing_dollar !== undefined)
+                existingPlan.plan_pricing_dollar = plan.plan_pricing_dollar;
+
+              if (plan.plan_pricing_inr !== undefined)
+                existingPlan.plan_pricing_inr = plan.plan_pricing_inr;
+
+              if (plan.plan_month !== undefined)
+                existingPlan.plan_month = plan.plan_month;
+
+              if (plan.plan_type !== undefined)
+                existingPlan.plan_type = plan.plan_type;
+
+              if (plan.plan_sub_title !== undefined)
+                existingPlan.plan_sub_title = plan.plan_sub_title;
+
+              if (plan.most_popular !== undefined)
+                existingPlan.most_popular = plan.most_popular;
             }
+          }
+
+          // 🟢 ADD NEW PLAN (NO _id)
+          else {
+            existingCategory.choose_plan_list.push({
+              plan_pricing_dollar: plan.plan_pricing_dollar,
+              plan_pricing_inr: plan.plan_pricing_inr,
+              plan_month: plan.plan_month,
+              plan_type: plan.plan_type,
+              plan_sub_title: plan.plan_sub_title || [],
+              most_popular: plan.most_popular ?? false,
+            });
           }
         });
       }

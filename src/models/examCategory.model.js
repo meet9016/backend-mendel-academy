@@ -49,7 +49,7 @@ const examListSchema = mongoose.Schema(
         type: Number,
         // required: true,
       },
-      plan_day: {
+      plan_month: {
         type: String,
         // required: true,
       },
