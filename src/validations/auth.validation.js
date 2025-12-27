@@ -3,16 +3,58 @@ const { password } = require('./custom.validation');
 
 const register = {
   body: Joi.object().keys({
-    email: Joi.string().required().email(),
-    password: Joi.string().required().custom(password),
-    firstName: Joi.string().required(),
+    first_name: Joi.string().required().min(2).max(50).messages({
+      'string.empty': 'First name is required',
+      'string.min': 'First name must be at least 2 characters',
+      'string.max': 'First name cannot exceed 50 characters',
+    }),
+    last_name: Joi.string().required().min(2).max(50).messages({
+      'string.empty': 'Last name is required',
+      'string.min': 'Last name must be at least 2 characters',
+      'string.max': 'Last name cannot exceed 50 characters',
+    }),
+    email: Joi.string().required().email().messages({
+      'string.empty': 'Email is required',
+      'string.email': 'Please enter a valid email address',
+    }),
+    phone: Joi.string().required().pattern(/^[0-9]{10,15}$/).messages({
+      'string.empty': 'Phone number is required',
+      'string.pattern.base': 'Phone number must be between 10 and 15 digits',
+    }),
+    password: Joi.string().required().custom(password).messages({
+      'string.empty': 'Password is required',
+    }),
   }),
 };
 
 const login = {
   body: Joi.object().keys({
-    email: Joi.string().required(),
-    password: Joi.string().required(),
+    email: Joi.string().required().email().messages({
+      'string.empty': 'Email is required',
+      'string.email': 'Please enter a valid email address',
+    }),
+    password: Joi.string().required().messages({
+      'string.empty': 'Password is required',
+    }),
+  }),
+};
+
+const updateProfile = {
+  body: Joi.object().keys({
+    first_name: Joi.string().optional().min(2).max(50).messages({
+      'string.min': 'First name must be at least 2 characters',
+      'string.max': 'First name cannot exceed 50 characters',
+    }),
+    last_name: Joi.string().optional().min(2).max(50).messages({
+      'string.min': 'Last name must be at least 2 characters',
+      'string.max': 'Last name cannot exceed 50 characters',
+    }),
+    email: Joi.string().optional().email().messages({
+      'string.email': 'Please enter a valid email address',
+    }),
+    phone: Joi.string().optional().pattern(/^[0-9]{10,15}$/).messages({
+      'string.pattern.base': 'Phone number must be between 10 and 15 digits',
+    }),
   }),
 };
 
@@ -30,7 +72,10 @@ const refreshTokens = {
 
 const forgotPassword = {
   body: Joi.object().keys({
-    email: Joi.string().email().required(),
+    email: Joi.string().email().required().messages({
+      'string.empty': 'Email is required',
+      'string.email': 'Please enter a valid email address',
+    }),
   }),
 };
 
@@ -39,7 +84,9 @@ const resetPassword = {
     token: Joi.string().required(),
   }),
   body: Joi.object().keys({
-    password: Joi.string().required().custom(password),
+    password: Joi.string().required().custom(password).messages({
+      'string.empty': 'New password is required',
+    }),
   }),
 };
 
@@ -52,6 +99,7 @@ const verifyEmail = {
 module.exports = {
   register,
   login,
+  updateProfile,
   logout,
   refreshTokens,
   forgotPassword,
