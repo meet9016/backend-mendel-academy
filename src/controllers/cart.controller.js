@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
-const { Cart, PreRecord, ExamCategory } = require('../models');
+const { Cart, PreRecord, ExamCategory, HyperSpecialist } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
 const axios = require('axios');
@@ -300,6 +300,124 @@ const addExamPlanToCart = {
         }
     },
 };
+const addHyperSpecialistToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string(),
+            user_id: Joi.string(),
+            hyperspecialist_id: Joi.string().required(),
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, hyperspecialist_id } = req.body;
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch hyperspecialist module
+            const hyperspecialist = await HyperSpecialist.findById(hyperspecialist_id);
+            if (!hyperspecialist) {
+                return res.status(404).send({
+                    success: false,
+                    message: "HyperSpecialist module not found",
+                });
+            }
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                hyperspecialist.price_dollar,
+                hyperspecialist.price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                hyperspecialist_id,
+                cart_type: 'hyperspecialist',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                // ✅ Item already exists - update price and currency
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Module already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true, // ✅ Flag for frontend
+                });
+            } else {
+                // ✅ Create new cart item
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'hyperspecialist',
+                    hyperspecialist_id,
+                    category_name: hyperspecialist.title, // Use title as category name
+                    total_price,
+                    currency: displayCurrency,
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Module added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in addHyperSpecialistToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "This module is already in your cart",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
+        }
+    },
+};
 
 // ✅ UPDATED: Get all cart items (both types)
 const getCart = {
@@ -331,6 +449,7 @@ const getCart = {
             const cartItems = await Cart.find(query)
                 .populate("product_id")
                 .populate("exam_category_id")
+                .populate("hyperspecialist_id") // ✅ NEW
                 .lean();
 
             const convertedCart = cartItems.map(item => {
@@ -360,6 +479,15 @@ const getCart = {
                     total_price = getPriceForCurrency(
                         item.plan_details.plan_pricing_dollar,
                         item.plan_details.plan_pricing_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert HyperSpecialist prices
+                if (item.cart_type === 'hyperspecialist' && item.hyperspecialist_id) {
+                    total_price = getPriceForCurrency(
+                        item.hyperspecialist_id.price_dollar,
+                        item.hyperspecialist_id.price_inr,
                         displayCurrency
                     );
                 }
@@ -410,13 +538,15 @@ const getCheckoutPageTempId = {
             if (isObjectId) {
                 data = await Cart.find({ user_id: temp_id, bucket_type: true })
                     .populate('product_id')
-                    .populate('exam_category_id');
+                    .populate('exam_category_id')
+                    .populate('hyperspecialist_id'); // ✅ NEW
             }
 
             if (data.length === 0) {
                 data = await Cart.find({ temp_id, bucket_type: true })
                     .populate('product_id')
-                    .populate('exam_category_id');
+                    .populate('exam_category_id')
+                    .populate('hyperspecialist_id'); // ✅ NEW
             }
 
             if (data.length === 0) {
@@ -454,6 +584,15 @@ const getCheckoutPageTempId = {
                     total_price = getPriceForCurrency(
                         itemObj.plan_details.plan_pricing_dollar,
                         itemObj.plan_details.plan_pricing_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert HyperSpecialist prices
+                if (itemObj.cart_type === 'hyperspecialist' && itemObj.hyperspecialist_id) {
+                    total_price = getPriceForCurrency(
+                        itemObj.hyperspecialist_id.price_dollar,
+                        itemObj.hyperspecialist_id.price_inr,
                         displayCurrency
                     );
                 }
@@ -757,6 +896,7 @@ const removeCartOption = {
 module.exports = {
     addToCart,
     addExamPlanToCart,
+    addHyperSpecialistToCart,
     getCheckoutPageTempId,
     getCart,
     getAllCart,

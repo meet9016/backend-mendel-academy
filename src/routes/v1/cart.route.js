@@ -18,6 +18,11 @@ router.post('/add-exam-plan',
     catchAsync(cartController.addExamPlanToCart.handler)
 );
 
+router.post('/add-hyperspecialist',
+    validate(cartController.addHyperSpecialistToCart.validation),
+    catchAsync(cartController.addHyperSpecialistToCart.handler)
+);
+
 // ✅ Get all cart items (both PreRecord and Exam Plans)
 router.get('/get', catchAsync(cartController.getCart.handler));
 

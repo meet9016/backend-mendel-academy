@@ -15,10 +15,10 @@ const cartSchema = mongoose.Schema(
             index: true,
         },
 
-        // ✅ Cart type to differentiate between PreRecord and Exam Plans
+        // ✅ Cart type - NOW INCLUDES HYPERSPECIALIST
         cart_type: {
             type: String,
-            enum: ['prerecord', 'exam_plan'],
+            enum: ['prerecord', 'exam_plan', 'hyperspecialist'],
             default: 'prerecord',
             required: true,
         },
@@ -36,7 +36,7 @@ const cartSchema = mongoose.Schema(
             enum: ['record-book', 'video', 'writing-book']
         }],
 
-        // ✅ For Exam Plans
+        // For Exam Plans
         exam_category_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "ExamList",
@@ -52,10 +52,19 @@ const cartSchema = mongoose.Schema(
         },
         plan_details: {
             plan_type: String,
-            plan_month: Number, // ✅ CHANGED from plan_day to plan_month
+            plan_month: Number,
             plan_pricing_dollar: Number,
             plan_pricing_inr: Number,
             plan_sub_title: [String],
+        },
+
+        // ✅ For HyperSpecialist
+        hyperspecialist_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "HyperSpecialist",
+            required: function () {
+                return this.cart_type === 'hyperspecialist';
+            },
         },
 
         // Common fields
@@ -89,14 +98,84 @@ const cartSchema = mongoose.Schema(
     }
 );
 
-// ✅ Updated compound index for both types
+// ✅ For PreRecord products - prevent duplicate product_id per user
 cartSchema.index(
-    { cart_type: 1, product_id: 1, exam_category_id: 1, plan_id: 1, user_id: 1, temp_id: 1 },
+    { cart_type: 1, product_id: 1, user_id: 1, bucket_type: 1 },
     {
         unique: true,
-        partialFilterExpression: { bucket_type: true }
+        partialFilterExpression: {
+            cart_type: 'prerecord',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
     }
 );
+
+cartSchema.index(
+    { cart_type: 1, product_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'prerecord',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ For Exam Plans - prevent duplicate exam_category_id + plan_id per user
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, plan_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'exam_plan',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, plan_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'exam_plan',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ NEW: For HyperSpecialist - prevent duplicate hyperspecialist_id per user
+cartSchema.index(
+    { cart_type: 1, hyperspecialist_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'hyperspecialist',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, hyperspecialist_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'hyperspecialist',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// Optional: Performance indexes
+cartSchema.index({ user_id: 1, bucket_type: 1 });
+cartSchema.index({ temp_id: 1, bucket_type: 1 });
 
 cartSchema.plugin(toJSON);
 
