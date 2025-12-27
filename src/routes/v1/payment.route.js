@@ -54,4 +54,7 @@ router.post(
 );
 router.get('/getall', catchAsync(paymentController.getAllPayment.handler));
 
+router.get("/download-excel", catchAsync(paymentController.downloadPaymentExcel.handler));
+router.get("/user-download-excel", auth(), catchAsync(paymentController.downloadUserWisePaymentsExcel.handler));
+
 module.exports = router;

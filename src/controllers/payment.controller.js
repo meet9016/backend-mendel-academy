@@ -11,6 +11,7 @@ const { getCurrencyFromCountry } = require('../utils/currency');
 const getCountryFromIP = require('../utils/getCountryFromIP');
 const Cart = require('../models/cart.model');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const ExcelJS = require("exceljs");
 
 // =====================
 // 📦 Create Razorpay Payment
@@ -112,7 +113,6 @@ const verifyPayment = {
         guest_id,
         status,       // "captured"
       } = req.body;
-      console.log("222222*****", req.body);
 
       // 1️⃣ Validate Razorpay Signature
       const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
@@ -141,7 +141,7 @@ const verifyPayment = {
       if (finalStatus !== "paid") {
         return res.status(400).json({
           success: false,
-          message: "❌ Payment failed or invalid signature",
+          message: "Payment failed or invalid signature",
           payment,
         });
       }
@@ -164,7 +164,7 @@ const verifyPayment = {
 
       return res.json({
         success: true,
-        message: "✅ Payment verified & cart updated",
+        message: "Payment verified & cart updated",
         payment,
       });
 
@@ -238,6 +238,8 @@ const verifyPaymentStripe = {
         phone,
         plan_id,
         amount,
+        temp_id,   // 🔥 receive temp_id
+        user_id,
       } = req.body;
 
       if (!paymentIntentId) {
@@ -266,11 +268,20 @@ const verifyPaymentStripe = {
         transaction_id: paymentIntent.id,
         payment_method: "Stripe",
         payment_status,
+        user_id: user_id || null,
       });
-      await Cart.updateMany(
-        { temp_id: plan_id },
+
+      // ✅ UPDATE CART CORRECTLY
+      const cartQuery = user_id
+        ? { user_id, bucket_type: true }
+        : { temp_id, bucket_type: true };
+
+      const cartUpdate = await Cart.updateMany(
+        cartQuery,
         { $set: { bucket_type: false } }
       );
+
+      console.log("Cart updated:", cartUpdate.modifiedCount);
       return res.json({
         success: true,
         message: "Stripe payment saved",
@@ -300,10 +311,210 @@ const getAllPayment = {
     await handlePagination(Payment, req, res, query);
   }
 }
+
+const downloadPaymentExcel = {
+  handler: async (req, res) => {
+    try {
+      const { start_date, end_date, payment_status } = req.query;
+
+      if (!start_date || !end_date) {
+        return res.status(400).json({
+          success: false,
+          message: "start_date and end_date are required",
+        });
+      }
+
+      /* ---------------- DATE FILTER ---------------- */
+      const start = new Date(start_date);
+      const end = new Date(end_date);
+      end.setHours(23, 59, 59, 999);
+
+      const query = {
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      };
+
+      if (payment_status) {
+        query.payment_status = payment_status;
+      }
+
+      const payments = await Payment.find(query)
+        .sort({ createdAt: -1 })
+        .populate("user_id", "full_name email phone");
+
+      if (!payments.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No payment records found",
+        });
+      }
+
+      /* ---------------- EXCEL SETUP ---------------- */
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Payments");
+
+      sheet.columns = [
+        { header: "Full Name", key: "full_name", width: 20 },
+        { header: "Email", key: "email", width: 25 },
+        { header: "Phone", key: "phone", width: 15 },
+        { header: "Amount", key: "amount", width: 15 },
+        { header: "Currency", key: "currency", width: 10 },
+        { header: "Payment Method", key: "payment_method", width: 15 },
+        { header: "Payment Status", key: "payment_status", width: 15 },
+        { header: "Transaction ID", key: "transaction_id", width: 25 },
+        { header: "Razorpay Payment ID", key: "razorpay_payment_id", width: 30 },
+        { header: "Stripe PaymentIntent ID", key: "paymentIntentId", width: 30 },
+        { header: "Payment Date", key: "date", width: 15 },
+      ];
+
+      /* ---------------- ROW DATA ---------------- */
+      payments.forEach((pay) => {
+        sheet.addRow({
+          date: pay.createdAt.toISOString().split("T")[0],
+          full_name:
+            pay.full_name ||
+            pay.user_id?.full_name ||
+            "Guest User",
+          email:
+            pay.email ||
+            pay.user_id?.email ||
+            pay.customerEmail ||
+            "-",
+          phone: pay.phone || "-",
+          amount: pay.amount,
+          currency: pay.currency,
+          payment_method: pay.payment_method,
+          payment_status: pay.payment_status,
+          transaction_id: pay.transaction_id || "-",
+          razorpay_payment_id: pay.razorpay_payment_id || "-",
+          paymentIntentId: pay.paymentIntentId || "-",
+          remarks: pay.remarks || "-",
+        });
+      });
+
+      /* ---------------- HEADER STYLE ---------------- */
+      sheet.getRow(1).font = { bold: true };
+
+      /* ---------------- RESPONSE ---------------- */
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=payments_${start_date}_to_${end_date}.xlsx`
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+};
+
+const downloadUserWisePaymentsExcel = {
+  handler: async (req, res) => {
+    try {
+      const { user_id, start_date, end_date } = req.query;
+
+      // Validate user_id
+      // if (!user_id || !mongoose.Types.ObjectId.isValid(user_id)) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Valid user_id is required",
+      //   });
+      // }
+
+      const query = {
+        user_id: user_id,
+        // payment_status: { $in: ["paid", "succeeded"] },
+      };
+
+      // Optional date filter
+      if (start_date && end_date) {
+        query.createdAt = {
+          $gte: new Date(start_date),
+          $lte: new Date(end_date),
+        };
+      }
+
+      const payments = await Payment.find(query).sort({ createdAt: -1 });
+
+      if (!payments.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No payment data found for this user",
+        });
+      }
+
+      // Excel generation
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("User Payments");
+
+      worksheet.columns = [
+        { header: "Full Name", key: "full_name", width: 20 },
+        { header: "Email", key: "email", width: 25 },
+        { header: "Amount", key: "amount", width: 15 },
+        { header: "Currency", key: "currency", width: 10 },
+        { header: "Payment Method", key: "payment_method", width: 15 },
+        { header: "Transaction ID", key: "transaction_id", width: 25 },
+        { header: "Date", key: "date", width: 15 },
+        { header: "Status", key: "payment_status", width: 15 },
+      ];
+
+      payments.forEach((p) => {
+        worksheet.addRow({
+          full_name: p.full_name || "-",
+          email: p.email || "-",
+          amount: p.amount,
+          currency: p.currency,
+          payment_method: p.payment_method,
+          transaction_id: p.transaction_id || "-",
+          date: p.createdAt.toISOString().split("T")[0],
+          payment_status: p.payment_status,
+        });
+      });
+
+      /* ---------------- HEADER STYLE ---------------- */
+      worksheet.getRow(1).font = { bold: true };
+
+      // Response headers
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=user-payments.xlsx"
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+};
+
+
 module.exports = {
   createPayment,
   verifyPayment,
   createStripePaymentIntent,
   verifyPaymentStripe,
-  getAllPayment
+  getAllPayment,
+  downloadPaymentExcel,
+  downloadUserWisePaymentsExcel
 };
