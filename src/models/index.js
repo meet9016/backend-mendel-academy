@@ -10,5 +10,6 @@ module.exports.Faq = require('./faq.model');
 module.exports.ContactUs = require('./contactUs.model');
 module.exports.UpCommingProgram = require('./pathology/upComingProgram.model');
 module.exports.HyperSpecialist = require('./pathology/hyperspecialist.model');
+module.exports.TermsConditions = require('./termsConditions.model');
 // module.exports.Order = require('./order.model');
 // module.exports.ExamCategory = require('./examCategory.model');

@@ -12,6 +12,7 @@ const paymentRoute = require('./payment.route');
 const faqRoute = require('./faq.route')
 const contactusRoute = require('./contactUs.route')
 const hyperSpecialistRoute = require('./pathology/hyperSpecialist.route')
+const termsConditionsRoute = require('./termsConditions.route')
 
 const router = express.Router();
 
@@ -67,6 +68,10 @@ const defaultRoutes = [
   {
     path: '/hyperSpecialist',
     route: hyperSpecialistRoute
+  },
+  {
+    path: '/terms-conditions',
+    route: termsConditionsRoute
   }
 ];
 

@@ -11,3 +11,4 @@ module.exports.faqController = require('./faq.controller');
 module.exports.contactUsController = require('./contact.controller');
 module.exports.upCommingProgramController = require('./pathology/upComingProgram.controller');
 module.exports.hyperSpecialistController = require('./pathology/hyperSpecialist.controller');
+module.exports.termsConditionsController = require('./termsConditions.controller');
