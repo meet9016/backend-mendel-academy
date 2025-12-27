@@ -55,9 +55,19 @@ const liveCoursesSchema = mongoose.Schema(
             description: {
                 type: String,
             },
+            // ✅ DUAL CURRENCY SUPPORT
+            price_usd: {
+                type: Number,
+                required: true
+            },
+            price_inr: {
+                type: Number,
+                required: true
+            },
+            // ⚠️ DEPRECATED: Keep for backward compatibility during migration
             price: {
-                type: Number, 
-                required: true 
+                type: Number,
+                required: false // Made optional for migration period
             },
             features: [
                 {

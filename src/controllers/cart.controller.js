@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
-const { Cart, PreRecord, ExamCategory, HyperSpecialist } = require('../models');
+const { Cart, PreRecord, ExamCategory, HyperSpecialist, LiveCourses } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
 const axios = require('axios');
@@ -300,6 +300,7 @@ const addExamPlanToCart = {
         }
     },
 };
+
 const addHyperSpecialistToCart = {
     validation: {
         body: Joi.object().keys({
@@ -419,7 +420,210 @@ const addHyperSpecialistToCart = {
     },
 };
 
-// ✅ UPDATED: Get all cart items (both types)
+const addLiveCoursesToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string(),
+            user_id: Joi.string(),
+            livecourse_id: Joi.string().required(),
+            livecourse_module_id: Joi.string().required(), // Can be subdocument _id OR index
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, livecourse_id, livecourse_module_id } = req.body;
+
+            console.log('📥 Received request:', {
+                temp_id,
+                user_id,
+                livecourse_id,
+                livecourse_module_id
+            });
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch live course
+            const liveCourse = await LiveCourses.findById(livecourse_id);
+            if (!liveCourse) {
+                console.error('❌ Live course not found:', livecourse_id);
+                return res.status(404).send({
+                    success: false,
+                    message: "Live course not found",
+                });
+            }
+
+            console.log('✅ Live course found:', {
+                courseId: liveCourse._id,
+                courseTitle: liveCourse.course_title,
+                modulesCount: liveCourse.choose_plan_list.length
+            });
+
+            // ✅ CRITICAL FIX: Try to find module by _id first, then by index
+            let module = null;
+            let actualModuleId = livecourse_module_id;
+
+            // Try to find by MongoDB subdocument _id
+            try {
+                module = liveCourse.choose_plan_list.id(livecourse_module_id);
+                console.log('🔍 Found module by _id:', module?._id);
+            } catch (error) {
+                console.log('⚠️ Could not find by _id, trying index...');
+            }
+
+            // If not found by _id, try by index
+            if (!module) {
+                // Check if livecourse_module_id looks like an index (e.g., "0", "1", "module-0")
+                const indexMatch = livecourse_module_id.match(/(\d+)$/);
+                if (indexMatch) {
+                    const index = parseInt(indexMatch[1]);
+                    if (index >= 0 && index < liveCourse.choose_plan_list.length) {
+                        module = liveCourse.choose_plan_list[index];
+                        // Use the actual MongoDB _id if available, otherwise use index
+                        actualModuleId = module._id || index.toString();
+                        console.log('✅ Found module by index:', { index, actualModuleId });
+                    }
+                }
+            }
+
+            if (!module) {
+                console.error('❌ Module not found:', {
+                    livecourse_module_id,
+                    availableModules: liveCourse.choose_plan_list.map((m, i) => ({
+                        index: i,
+                        _id: m._id,
+                        title: m.title
+                    }))
+                });
+                return res.status(404).send({
+                    success: false,
+                    message: "Module not found in this course",
+                });
+            }
+
+            console.log('✅ Module details:', {
+                moduleId: actualModuleId,
+                title: module.title,
+                price_usd: module.price_usd,
+                price_inr: module.price_inr
+            });
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                module.price_usd,
+                module.price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                livecourse_id,
+                livecourse_module_id: actualModuleId, // Use the actual module ID
+                cart_type: 'livecourses',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            console.log('🔍 Checking existing cart item:', query);
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                console.log('✅ Cart item already exists, updating...');
+                // ✅ Module already exists - update price and currency
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Module already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true,
+                });
+            } else {
+                console.log('✅ Creating new cart item...');
+                // ✅ Create new cart item
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'livecourses',
+                    livecourse_id,
+                    livecourse_module_id: actualModuleId, // Use the actual module ID
+                    livecourse_details: {
+                        moduleNumber: module.moduleNumber,
+                        title: module.title,
+                        subtitle: module.subtitle,
+                        description: module.description,
+                        price_usd: module.price_usd,
+                        price_inr: module.price_inr,
+                        features: module.features,
+                        isMostPopular: module.isMostPopular,
+                    },
+                    category_name: liveCourse.course_title,
+                    total_price,
+                    currency: displayCurrency,
+                    duration: liveCourse.duration, // e.g., "8 weeks"
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                console.log('✅ Cart item created:', cartItem._id);
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Module added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('❌ Error in addLiveCoursesToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "This module is already in your cart",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+                error: error.stack // Include stack trace for debugging
+            });
+        }
+    },
+};
+
+// ✅ UPDATED: Get all cart items (includes livecourses)
 const getCart = {
     handler: async (req, res) => {
         try {
@@ -449,7 +653,8 @@ const getCart = {
             const cartItems = await Cart.find(query)
                 .populate("product_id")
                 .populate("exam_category_id")
-                .populate("hyperspecialist_id") // ✅ NEW
+                .populate("hyperspecialist_id")
+                .populate("livecourse_id") // ✅ NEW
                 .lean();
 
             const convertedCart = cartItems.map(item => {
@@ -483,11 +688,20 @@ const getCart = {
                     );
                 }
 
-                // ✅ NEW: Convert HyperSpecialist prices
+                // Convert HyperSpecialist prices
                 if (item.cart_type === 'hyperspecialist' && item.hyperspecialist_id) {
                     total_price = getPriceForCurrency(
                         item.hyperspecialist_id.price_dollar,
                         item.hyperspecialist_id.price_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert LiveCourses prices
+                if (item.cart_type === 'livecourses' && item.livecourse_details) {
+                    total_price = getPriceForCurrency(
+                        item.livecourse_details.price_usd,
+                        item.livecourse_details.price_inr,
                         displayCurrency
                     );
                 }
@@ -522,7 +736,7 @@ const getCart = {
     },
 };
 
-// ✅ UPDATED: Get checkout page data (both types)
+// ✅ UPDATED: Get checkout page data (includes livecourses)
 const getCheckoutPageTempId = {
     handler: async (req, res) => {
         try {
@@ -539,14 +753,16 @@ const getCheckoutPageTempId = {
                 data = await Cart.find({ user_id: temp_id, bucket_type: true })
                     .populate('product_id')
                     .populate('exam_category_id')
-                    .populate('hyperspecialist_id'); // ✅ NEW
+                    .populate('hyperspecialist_id')
+                    .populate('livecourse_id'); // ✅ NEW
             }
 
             if (data.length === 0) {
                 data = await Cart.find({ temp_id, bucket_type: true })
                     .populate('product_id')
                     .populate('exam_category_id')
-                    .populate('hyperspecialist_id'); // ✅ NEW
+                    .populate('hyperspecialist_id')
+                    .populate('livecourse_id'); // ✅ NEW
             }
 
             if (data.length === 0) {
@@ -588,11 +804,20 @@ const getCheckoutPageTempId = {
                     );
                 }
 
-                // ✅ NEW: Convert HyperSpecialist prices
+                // Convert HyperSpecialist prices
                 if (itemObj.cart_type === 'hyperspecialist' && itemObj.hyperspecialist_id) {
                     total_price = getPriceForCurrency(
                         itemObj.hyperspecialist_id.price_dollar,
                         itemObj.hyperspecialist_id.price_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert LiveCourses prices
+                if (itemObj.cart_type === 'livecourses' && itemObj.livecourse_details) {
+                    total_price = getPriceForCurrency(
+                        itemObj.livecourse_details.price_usd,
+                        itemObj.livecourse_details.price_inr,
                         displayCurrency
                     );
                 }
@@ -897,6 +1122,7 @@ module.exports = {
     addToCart,
     addExamPlanToCart,
     addHyperSpecialistToCart,
+    addLiveCoursesToCart,
     getCheckoutPageTempId,
     getCart,
     getAllCart,

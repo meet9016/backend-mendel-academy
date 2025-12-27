@@ -15,10 +15,10 @@ const cartSchema = mongoose.Schema(
             index: true,
         },
 
-        // ✅ Cart type - NOW INCLUDES HYPERSPECIALIST
+        // ✅ Cart type - NOW INCLUDES LIVECOURSES
         cart_type: {
             type: String,
-            enum: ['prerecord', 'exam_plan', 'hyperspecialist'],
+            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses'],
             default: 'prerecord',
             required: true,
         },
@@ -65,6 +65,31 @@ const cartSchema = mongoose.Schema(
             required: function () {
                 return this.cart_type === 'hyperspecialist';
             },
+        },
+
+        // ✅ NEW: For LiveCourses
+        livecourse_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "LiveCourses",
+            required: function () {
+                return this.cart_type === 'livecourses';
+            },
+        },
+        livecourse_module_id: {
+            type: String, // Subdocument _id from choose_plan_list
+            required: function () {
+                return this.cart_type === 'livecourses';
+            },
+        },
+        livecourse_details: {
+            moduleNumber: String,
+            title: String,
+            subtitle: String,
+            description: String,
+            price_usd: Number,
+            price_inr: Number,
+            features: [String],
+            isMostPopular: Boolean,
         },
 
         // Common fields
@@ -148,7 +173,7 @@ cartSchema.index(
     }
 );
 
-// ✅ NEW: For HyperSpecialist - prevent duplicate hyperspecialist_id per user
+// ✅ For HyperSpecialist - prevent duplicate hyperspecialist_id per user
 cartSchema.index(
     { cart_type: 1, hyperspecialist_id: 1, user_id: 1, bucket_type: 1 },
     {
@@ -167,6 +192,31 @@ cartSchema.index(
         unique: true,
         partialFilterExpression: {
             cart_type: 'hyperspecialist',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ NEW: For LiveCourses - prevent duplicate livecourse_id + module_id per user
+cartSchema.index(
+    { cart_type: 1, livecourse_id: 1, livecourse_module_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'livecourses',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, livecourse_id: 1, livecourse_module_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'livecourses',
             bucket_type: true,
             temp_id: { $type: 'string' }
         }

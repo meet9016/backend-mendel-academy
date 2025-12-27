@@ -12,32 +12,39 @@ router.post('/create',
     catchAsync(cartController.addToCart.handler)
 );
 
-// ✅ NEW: Add Exam Plan to cart
+// ✅ Add Exam Plan to cart
 router.post('/add-exam-plan',
     validate(cartController.addExamPlanToCart.validation),
     catchAsync(cartController.addExamPlanToCart.handler)
 );
 
+// ✅ Add HyperSpecialist to cart
 router.post('/add-hyperspecialist',
     validate(cartController.addHyperSpecialistToCart.validation),
     catchAsync(cartController.addHyperSpecialistToCart.handler)
 );
 
-// ✅ Get all cart items (both PreRecord and Exam Plans)
+// ✅ FIXED: Add LiveCourse to cart (removed duplicate /cart/)
+router.post('/add-livecourse',
+    validate(cartController.addLiveCoursesToCart.validation),
+    catchAsync(cartController.addLiveCoursesToCart.handler)
+);
+
+// ✅ Get all cart items (all types)
 router.get('/get', catchAsync(cartController.getCart.handler));
 
 // ✅ Get all carts (admin)
 router.get('/get-all-cart', catchAsync(cartController.getAllCart.handler));
 
-// ✅ Get checkout page data (both types)
+// ✅ Get checkout page data (all types)
 router.get('/get-checkout/:temp_id',
     catchAsync(cartController.getCheckoutPageTempId.handler)
 );
 
-// ✅ Get cart count (both types)
+// ✅ Get cart count (all types)
 router.get("/count/:temp_id", catchAsync(cartController.getCartCount.handler));
 
-// ✅ Update quantity (works for both types)
+// ✅ Update quantity (works for all types)
 router.put('/update',
     validate(cartController.updateQuantity.validation),
     catchAsync(cartController.updateQuantity.handler)
@@ -49,7 +56,7 @@ router.put('/update-options',
     catchAsync(cartController.updateCartOptions.handler)
 );
 
-// ✅ Remove entire cart item (works for both types)
+// ✅ Remove entire cart item (works for all types)
 router.delete('/remove/:id', catchAsync(cartController.removeCart.handler));
 
 // ✅ Remove option (PreRecord only)
