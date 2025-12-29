@@ -181,7 +181,7 @@ const verifyPayment = {
 const createStripePaymentIntent = {
   handler: async (req, res) => {
     try {
-      let { amount, country, email, plan_id } = req.body;
+      let { amount, country, email, user_id } = req.body;
 
       if (!amount) {
         return res.status(400).json({ error: "Amount is required" });
@@ -206,6 +206,7 @@ const createStripePaymentIntent = {
           currency,
           receipt_email: email,
           automatic_payment_methods: { enabled: true },
+          // user_id: user_id || null,
         });
 
         return res.json({
@@ -241,6 +242,7 @@ const verifyPaymentStripe = {
         temp_id,   // 🔥 receive temp_id
         user_id,
       } = req.body;
+console.log("req.body*********",req.body);
 
       if (!paymentIntentId) {
         return res.status(400).json({ message: "PaymentIntent ID is required" });
