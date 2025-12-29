@@ -242,7 +242,7 @@ const verifyPaymentStripe = {
         temp_id,   // 🔥 receive temp_id
         user_id,
       } = req.body;
-console.log("req.body*********",req.body);
+      console.log("req.body*********", req.body);
 
       if (!paymentIntentId) {
         return res.status(400).json({ message: "PaymentIntent ID is required" });
