@@ -49,7 +49,8 @@ module.exports = {
   fileUploadPath: envVars.FILE_UPLOAD_PATH,
   backendUrl: envVars.BACKEND_URL,
   jwt: {
-    secret: envVars.JWT_SECRET,
+    // secret: envVars.JWT_SECRET,
+    secret: process.env.JWT_SECRET,
     accessExpirationMinutes: envVars.JWT_ACCESS_EXPIRATION_MINUTES,
     refreshExpirationDays: envVars.JWT_REFRESH_EXPIRATION_DAYS,
     resetPasswordExpirationMinutes:
