@@ -31,7 +31,7 @@ const envVarsSchema = Joi.object()
 const { value: envVars, error } = envVarsSchema.prefs({ errors: { label: 'key' } }).validate(process.env);
 
 if (error) {
-  throw new Error(`Config validation error: ${error.message}`);
+  throw new Error(`Config validation error: ${error}`);
 }
 
 module.exports = {
@@ -47,7 +47,7 @@ module.exports = {
   fileUploadPath: envVars.FILE_UPLOAD_PATH,
   backendUrl: envVars.BACKEND_URL,
   jwt: {
-    secret: envVars.JWT_SECRET,
+    secret: envVars?.JWT_SECRET,
     accessExpirationMinutes: envVars.JWT_ACCESS_EXPIRATION_MINUTES,
     refreshExpirationDays: envVars.JWT_REFRESH_EXPIRATION_DAYS,
     resetPasswordExpirationMinutes: envVars.JWT_RESET_PASSWORD_EXPIRATION_MINUTES,
