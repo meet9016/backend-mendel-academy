@@ -1,7 +1,6 @@
 module.exports.Question = require('./question.model');
 module.exports.Blogs = require('./blogs.model');
 module.exports.PreRecord = require('./pathology/prerecorded.model');
-module.exports.LiveCourses = require('./pathology/livecourses.model');
 module.exports.ExamCategory = require('./examCategory.model');
 module.exports.Cart = require('./cart.model');
 module.exports.User = require('./user.model');
@@ -10,6 +9,8 @@ module.exports.Faq = require('./faq.model');
 module.exports.ContactUs = require('./contactUs.model');
 module.exports.UpCommingProgram = require('./pathology/upComingProgram.model');
 module.exports.HyperSpecialist = require('./pathology/hyperspecialist.model');
+module.exports.LiveCourses = require('./pathology/liveCourses.model');
 module.exports.TermsConditions = require('./termsConditions.model');
 // module.exports.Order = require('./order.model');
 // module.exports.ExamCategory = require('./examCategory.model');
+// module.exports.LiveCourses = require('./pathology/livecourses.model');
