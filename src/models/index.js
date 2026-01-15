@@ -13,4 +13,3 @@ module.exports.LiveCourses = require('./pathology/liveCourses.model');
 module.exports.TermsConditions = require('./termsConditions.model');
 // module.exports.Order = require('./order.model');
 // module.exports.ExamCategory = require('./examCategory.model');
-// module.exports.LiveCourses = require('./pathology/livecourses.model');
