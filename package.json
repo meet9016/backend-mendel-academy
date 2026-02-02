@@ -12,7 +12,7 @@
   "scripts": {
     "build": "nap install",
     "start": "node dist/index.js",
-    "dev": "node --watch src/index.jsx",
+    "dev": "node --watch src/index.js",
     "test": "jest -i --colors --verbose --detectOpenHandles",
     "test:watch": "jest -i --watchAll",
     "coverage": "jest -i --coverage",
