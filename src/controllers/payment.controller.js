@@ -1,17 +1,20 @@
-const httpStatus = require('http-status');
-const ApiError = require('../utils/ApiError');
-const Joi = require('joi');
-const { Payment } = require('../models');
-const razorpay = require('../config/razorpay');
-const crypto = require('crypto');
-const Stripe = require('stripe');
-const { handlePagination } = require('../utils/helper');
-const { getLiveRates } = require('../utils/exchangeRates');
-const { getCurrencyFromCountry } = require('../utils/currency');
-const getCountryFromIP = require('../utils/getCountryFromIP');
-const Cart = require('../models/cart.model');
+const httpStatus = require("http-status");
+const ApiError = require("../utils/ApiError");
+const Joi = require("joi");
+const { Payment, LiveCourses } = require("../models");
+const razorpay = require("../config/razorpay");
+const crypto = require("crypto");
+const Stripe = require("stripe");
+const { handlePagination } = require("../utils/helper");
+const { getLiveRates } = require("../utils/exchangeRates");
+const { getCurrencyFromCountry } = require("../utils/currency");
+const getCountryFromIP = require("../utils/getCountryFromIP");
+const Cart = require("../models/cart.model");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const ExcelJS = require("exceljs");
+const {
+  sendEnrollmentConfirmationEmail,
+} = require("../services/email.service");
 
 // =====================
 // 📦 Create Razorpay Payment
@@ -27,28 +30,59 @@ const createPayment = {
       guest_id: Joi.string(),
       amount: Joi.number().required(),
       currency: Joi.string().allow(""),
-      payment_method: Joi.string().valid('Razorpay', 'Stripe', 'Paypal').default('Razorpay'),
-      payment_status: Joi.string().valid('Pending', 'Processing', 'Paid', 'Failed').default('Pending'),
+      payment_method: Joi.string()
+        .valid("Razorpay", "Stripe", "Paypal")
+        .default("Razorpay"),
+      payment_status: Joi.string()
+        .valid("Pending", "Processing", "Paid", "Failed")
+        .default("Pending"),
     }),
   },
 
   handler: async (req, res) => {
     try {
-      const { full_name = "", email = "", phone = "", plan_id, user_id, guest_id, amount, payment_method, payment_status, currency } = req.body;
+      const {
+        full_name = "",
+        email = "",
+        phone = "",
+        plan_id,
+        user_id,
+        guest_id,
+        amount,
+        payment_method,
+        payment_status,
+        currency,
+      } = req.body;
 
       // 1️⃣ Detect country if currency not sent
       let finalCurrency = currency;
 
       if (!finalCurrency) {
-        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+        const ip =
+          req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+          req.socket.remoteAddress;
         const userCountry = await getCountryFromIP(ip);
-        finalCurrency = (await getCurrencyFromCountry(userCountry)).toUpperCase();
+        finalCurrency = (
+          await getCurrencyFromCountry(userCountry)
+        ).toUpperCase();
       }
 
       // ⚠ Razorpay supports a limited set of currencies
       const supportedCurrencies = [
-        "INR", "USD", "EUR", "GBP", "AED", "SAR", "AUD", "SGD",
-        "CAD", "MYR", "QAR", "BHD", "OMR", "NZD"
+        "INR",
+        "USD",
+        "EUR",
+        "GBP",
+        "AED",
+        "SAR",
+        "AUD",
+        "SGD",
+        "CAD",
+        "MYR",
+        "QAR",
+        "BHD",
+        "OMR",
+        "NZD",
       ];
 
       if (!supportedCurrencies.includes(finalCurrency)) {
@@ -82,17 +116,16 @@ const createPayment = {
 
       return res.status(httpStatus.OK).json({
         success: true,
-        message: 'Razorpay order created successfully',
+        message: "Razorpay order created successfully",
         key: process.env.RAZORPAY_KEY_ID,
         order_id: order.id,
         amount: order.amount,
         currency: order.currency,
         data: payment,
       });
-
     } catch (error) {
-      console.error('Create Order Error:', error);
-      res.status(500).json({ success: false, error: 'Failed to create order' });
+      console.error("Create Order Error:", error);
+      res.status(500).json({ success: false, error: "Failed to create order" });
     }
   },
 };
@@ -109,18 +142,18 @@ const verifyPayment = {
         razorpay_signature,
         amount,
         plan_id,
-        user_id,      // guest_id OR real user id
+        user_id, // guest_id OR real user id
         guest_id,
-        status,       // "captured"
+        status, // "captured"
       } = req.body;
-
       // 1️⃣ Validate Razorpay Signature
       const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
       hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
       const generatedSignature = hmac.digest("hex");
 
       const isAuthentic = generatedSignature === razorpay_signature;
-      const finalStatus = isAuthentic && status === "captured" ? "paid" : "failed";
+      const finalStatus =
+        isAuthentic && status === "captured" ? "paid" : "failed";
 
       // 2️⃣ Save / Update payment record
       const payment = await Payment.findOneAndUpdate(
@@ -130,11 +163,11 @@ const verifyPayment = {
           razorpay_signature,
           amount,
           plan_id,
-          user_id,    // NOTE: guest id allowed
+          user_id,
           guest_id: !user_id ? guest_id : null,
           payment_status: finalStatus,
         },
-        { new: true }
+        { new: true },
       );
 
       // If Not Authentic
@@ -161,13 +194,21 @@ const verifyPayment = {
       await Cart.updateMany(matchQuery, {
         $set: { bucket_type: false },
       });
-
+      let liveCoursesData = await LiveCourses.findById(plan_id);
+      if (liveCoursesData) {
+        await sendEnrollmentConfirmationEmail(
+          payment.email,
+          payment.full_name,
+          liveCoursesData.course_title,
+          liveCoursesData.zoom_link,
+          razorpay_order_id,
+        );
+      }
       return res.json({
         success: true,
         message: "Payment verified & cart updated",
         payment,
       });
-
     } catch (error) {
       console.error("Verify Payment Error:", error);
       return res.status(500).json({
@@ -215,11 +256,9 @@ const createStripePaymentIntent = {
           currency: currency.toUpperCase(),
           message: "Payment Intent created",
         });
-
       } catch (error) {
         return res.status(400).json({ error: error.message });
       }
-
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -239,18 +278,20 @@ const verifyPaymentStripe = {
         phone,
         plan_id,
         amount,
-        temp_id,   // 🔥 receive temp_id
+        temp_id, // 🔥 receive temp_id
         user_id,
       } = req.body;
       console.log("req.body*********", req.body);
 
       if (!paymentIntentId) {
-        return res.status(400).json({ message: "PaymentIntent ID is required" });
+        return res
+          .status(400)
+          .json({ message: "PaymentIntent ID is required" });
       }
 
       const paymentIntent = await stripe.paymentIntents.retrieve(
         paymentIntentId,
-        { expand: ["charges"] }
+        { expand: ["charges"] },
       );
 
       // Determine final status
@@ -278,10 +319,9 @@ const verifyPaymentStripe = {
         ? { user_id, bucket_type: true }
         : { temp_id, bucket_type: true };
 
-      const cartUpdate = await Cart.updateMany(
-        cartQuery,
-        { $set: { bucket_type: false } }
-      );
+      const cartUpdate = await Cart.updateMany(cartQuery, {
+        $set: { bucket_type: false },
+      });
 
       console.log("Cart updated:", cartUpdate.modifiedCount);
       return res.json({
@@ -289,7 +329,6 @@ const verifyPaymentStripe = {
         message: "Stripe payment saved",
         payment,
       });
-
     } catch (error) {
       console.error("Verify payment error:", error);
       return res.status(500).json({
@@ -311,8 +350,8 @@ const getAllPayment = {
     if (search) query.title = { $regex: search, $options: "i" };
 
     await handlePagination(Payment, req, res, query);
-  }
-}
+  },
+};
 
 const downloadPaymentExcel = {
   handler: async (req, res) => {
@@ -366,8 +405,16 @@ const downloadPaymentExcel = {
         { header: "Payment Method", key: "payment_method", width: 15 },
         { header: "Payment Status", key: "payment_status", width: 15 },
         { header: "Transaction ID", key: "transaction_id", width: 25 },
-        { header: "Razorpay Payment ID", key: "razorpay_payment_id", width: 30 },
-        { header: "Stripe PaymentIntent ID", key: "paymentIntentId", width: 30 },
+        {
+          header: "Razorpay Payment ID",
+          key: "razorpay_payment_id",
+          width: 30,
+        },
+        {
+          header: "Stripe PaymentIntent ID",
+          key: "paymentIntentId",
+          width: 30,
+        },
         { header: "Payment Date", key: "date", width: 15 },
       ];
 
@@ -375,15 +422,8 @@ const downloadPaymentExcel = {
       payments.forEach((pay) => {
         sheet.addRow({
           date: pay.createdAt.toISOString().split("T")[0],
-          full_name:
-            pay.full_name ||
-            pay.user_id?.full_name ||
-            "Guest User",
-          email:
-            pay.email ||
-            pay.user_id?.email ||
-            pay.customerEmail ||
-            "-",
+          full_name: pay.full_name || pay.user_id?.full_name || "Guest User",
+          email: pay.email || pay.user_id?.email || pay.customerEmail || "-",
           phone: pay.phone || "-",
           amount: pay.amount,
           currency: pay.currency,
@@ -402,17 +442,16 @@ const downloadPaymentExcel = {
       /* ---------------- RESPONSE ---------------- */
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
 
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=payments_${start_date}_to_${end_date}.xlsx`
+        `attachment; filename=payments_${start_date}_to_${end_date}.xlsx`,
       );
 
       await workbook.xlsx.write(res);
       res.end();
-
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -491,16 +530,15 @@ const downloadUserWisePaymentsExcel = {
       // Response headers
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=user-payments.xlsx"
+        "attachment; filename=user-payments.xlsx",
       );
 
       await workbook.xlsx.write(res);
       res.end();
-
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -510,7 +548,6 @@ const downloadUserWisePaymentsExcel = {
   },
 };
 
-
 module.exports = {
   createPayment,
   verifyPayment,
@@ -518,5 +555,5 @@ module.exports = {
   verifyPaymentStripe,
   getAllPayment,
   downloadPaymentExcel,
-  downloadUserWisePaymentsExcel
+  downloadUserWisePaymentsExcel,
 };

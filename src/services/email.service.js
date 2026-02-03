@@ -16,7 +16,6 @@
 //   await transport.sendMail(msg);
 // };
 
-
 // const sendResetPasswordEmail = async (to, token) => {
 //   const subject = 'Reset password';
 //   // replace this url with the link to the reset password page of your front-end app
@@ -37,7 +36,6 @@
 //   await sendEmail(to, subject, text);
 // };
 
-
 // const sendLeaveRequestEmail = async (to, token, leaveData) => {
 //   const subject = 'Leave Request';
 //   // replace this url with the link to the email verification page of your front-end app
@@ -50,7 +48,7 @@
 //             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 //                 <style>
 //                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
-        
+
 //                     html , body  {
 //                         font-family: 'Poppins', sans-serif;
 //                         margin: 0;
@@ -112,10 +110,10 @@
 //                         margin: 10px 0 10px;
 //                         display: inline-flex;
 //                     }
-//                     .pg_template_email .pg_success_content  {  
+//                     .pg_template_email .pg_success_content  {
 //                        margin:35px 0 0;
 //                     }
-//                     .pg_template_email .pg_success_content p {  
+//                     .pg_template_email .pg_success_content p {
 //                         font-size: 14px;
 //                         color: #313337;
 //                         font-weight: 400;
@@ -164,7 +162,7 @@
 //                         <a  class="pg_btn" href=${approvalUrl}>Approve</a>
 //                         <a  class="pg_btn" href=${rejectionUrl}>Reject</a>
 //                     </div>
-        
+
 //                 </div>
 //             </div>
 //         </body>
@@ -189,19 +187,18 @@
 //   sendLeaveRequestEmail,
 // };
 
-
-const nodemailer = require('nodemailer');
-const config = require('../config/config');
-const logger = require('../config/logger');
-const moment = require('moment');
-const transporter = require('../config/email');
+const nodemailer = require("nodemailer");
+const config = require("../config/config");
+const logger = require("../config/logger");
+const moment = require("moment");
+const transporter = require("../config/email");
 
 const sendWelcomeEmail = async (to, name, zoomLink) => {
   const mailOptions = {
     from: `"Mendel Shop" <${process.env.SMTP_USER}>`,
     to,
-    subject: 'Welcome to Mendel Academy! 🎓',
-   html: `
+    subject: "Welcome to Mendel Academy! 🎓",
+    html: `
   <div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, sans-serif;">
     <table width="100%" border="0" cellspacing="0" cellpadding="0" 
       style="max-width:600px; margin:auto; background:white; border-radius:8px; overflow:hidden;">
@@ -276,55 +273,56 @@ const sendWelcomeEmail = async (to, name, zoomLink) => {
       </tr>
     </table>
   </div>
-`
-
+`,
   };
 
   await transporter.sendMail(mailOptions);
 };
 
 const transport = nodemailer.createTransport(config.email.smtp);
-if (config.env !== 'test') {
-    transport
-        .verify()
-        .then(() => logger.info('Connected to email server'))
-        .catch(() => logger.warn('Unable to connect to email server. Make sure you have configured the SMTP options in .env'));
+if (config.env !== "test") {
+  transport
+    .verify()
+    .then(() => logger.info("Connected to email server"))
+    .catch(() =>
+      logger.warn(
+        "Unable to connect to email server. Make sure you have configured the SMTP options in .env",
+      ),
+    );
 }
 
 const sendEmail = async (to, subject, text) => {
-    const msg = { from: config.email.from, to, subject, text };
-    await transport.sendMail(msg);
+  const msg = { from: config.email.from, to, subject, text };
+  await transport.sendMail(msg);
 };
 
-
 const sendResetPasswordEmail = async (to, token) => {
-    const subject = 'Reset password';
-    // replace this url with the link to the reset password page of your front-end app
-    const resetPasswordUrl = `http://link-to-app/reset-password?token=${token}`;
-    const text = `Dear user,
+  const subject = "Reset password";
+  // replace this url with the link to the reset password page of your front-end app
+  const resetPasswordUrl = `http://link-to-app/reset-password?token=${token}`;
+  const text = `Dear user,
 To reset your password, click on this link: ${resetPasswordUrl}
 If you did not request any password resets, then ignore this email.`;
-    await sendEmail(to, subject, text);
+  await sendEmail(to, subject, text);
 };
 
 const sendVerificationEmail = async (to, token) => {
-    const subject = 'Email Verification';
-    // replace this url with the link to the email verification page of your front-end app
-    const verificationEmailUrl = `http://link-to-app/verify-email?token=${token}`;
-    const text = `Dear user,
+  const subject = "Email Verification";
+  // replace this url with the link to the email verification page of your front-end app
+  const verificationEmailUrl = `http://link-to-app/verify-email?token=${token}`;
+  const text = `Dear user,
 To verify your email, click on this link: ${verificationEmailUrl}
 If you did not create an account, then ignore this email.`;
-    await sendEmail(to, subject, text);
+  await sendEmail(to, subject, text);
 };
 
-
 const sendLeaveRequestEmail = async (to, token, leaveData) => {
-    const subject = 'Leave Request';
-    // replace this url with the link to the email verification page of your front-end app
-    const approvalUrl = `${config.backendUrl}/api/v1/leave/approve-leave?token=${token}&id=${leaveData._id}`;
-    const rejectionUrl = `${config.backendUrl}/api/v1/leave/reject-leave?token=${token}&id=${leaveData._id}`;
+  const subject = "Leave Request";
+  // replace this url with the link to the email verification page of your front-end app
+  const approvalUrl = `${config.backendUrl}/api/v1/leave/approve-leave?token=${token}&id=${leaveData._id}`;
+  const rejectionUrl = `${config.backendUrl}/api/v1/leave/reject-leave?token=${token}&id=${leaveData._id}`;
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -432,7 +430,11 @@ const sendLeaveRequestEmail = async (to, token, leaveData) => {
                     <h2>Leave Request</h2>
                 </div>
                 <div class="pg_template_content">
-                    <p>Employee Name: <span>${leaveData?.user?.firstName + " " + leaveData?.user?.lastName}</span></p>
+                    <p>Employee Name: <span>${
+                      leaveData?.user?.firstName +
+                      " " +
+                      leaveData?.user?.lastName
+                    }</span></p>
                     <p>Employee Email: <span>${leaveData.user.email}</span></p>
                     <div class="pg_success">
                         <div class="pg_success_content">
@@ -449,23 +451,125 @@ const sendLeaveRequestEmail = async (to, token, leaveData) => {
             </div>
         </body>
         </html>
-        `
+        `;
 
-    const msg = {
-        from: config.email.from,
-        to,
-        subject,
-        html
-    };
+  const msg = {
+    from: config.email.from,
+    to,
+    subject,
+    html,
+  };
 
-    await transport.sendMail(msg);
-}
+  await transport.sendMail(msg);
+};
+
+const sendEnrollmentConfirmationEmail = async (
+  to,
+  name,
+  productName,
+  zoomLink = "",
+  orderId = "",
+) => {
+  const subject = `Enrollment Confirmed! Welcome to ${productName} at Mendel Academy 🎉`;
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:620px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <tr>
+      <td style="background:#232323; text-align:center; padding:35px 20px;">
+        <img src="https://mendelacademy.com/_next/image?url=%2Fblog-images%2FTop%206%20Best%20USMLE%20Coaching%20Centers%20in%20India.jpg&w=3840&q=80" 
+             alt="Mendel Academy" 
+             style="max-width:180px; height:auto; margin-bottom:15px; border-radius:8px;" />
+        <h1 style="color:#F1C232; margin:10px 0 0; font-size:28px; font-weight:bold;">
+          Enrollment Confirmed!
+        </h1>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding:35px 30px; color:#333; font-size:15px; line-height:1.7;">
+        <h2 style="margin:0 0 20px; color:#232323;">Hi ${name}, 🎓</h2>
+        
+        <p>Thank you for enrolling in <strong>${productName}</strong>!</p>
+        <p>Your payment has been successfully processed ${
+          orderId ? ` (Order ID: <strong>${orderId}</strong>)` : ""
+        }.</p>
+        
+        <p style="margin:25px 0 15px;">
+          You're now officially part of <strong>Mendel Academy</strong> — we're excited to help you succeed!
+        </p>
+
+        <!-- Zoom / Meeting Section -->
+        ${
+          zoomLink
+            ? `
+            <div style="margin:30px 0; padding:25px; background:#f0f7ff; border-left:5px solid #007bff; border-radius:8px;">
+              <p style="margin:0 0 12px; font-size:17px; font-weight:bold; color:#007bff;">
+                Your Welcome/Orientation Session is Ready!
+              </p>
+              <a href="${zoomLink}" target="_blank" 
+                 style="display:inline-block; background:#007bff; color:white; padding:14px 28px; 
+                        text-decoration:none; border-radius:6px; font-size:16px; font-weight:500;">
+                Join Zoom Meeting →
+              </a>
+              <p style="margin:15px 0 0; font-size:14px; color:#555;">
+                Or copy-paste the link:<br>
+                <a href="${zoomLink}" target="_blank" style="color:#007bff; word-break:break-all;">${zoomLink}</a>
+              </p>
+              <p style="margin:20px 0 0; font-size:13px; color:#777;">
+                <em>Please join on time — see you there!</em>
+              </p>
+            </div>
+            `
+            : `
+            <div style="margin:30px 0; padding:20px; background:#fff8e1; border-left:5px solid #F1C232; border-radius:8px;">
+              <p style="margin:0; font-size:15px; color:#856404;">
+                <strong>Zoom link coming soon!</strong><br>
+                We'll send your class/orientation Zoom link in a separate email within 24 hours.
+              </p>
+            </div>
+            `
+        }
+
+        <p style="margin:30px 0 10px;">
+          If you have any questions about your course, schedule, or anything else — just reply to this email.
+        </p>
+
+        <p style="margin-top:35px;">
+          Best wishes for your success,<br>
+          <strong>The Mendel Academy Team</strong>
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#232323; padding:20px; text-align:center; color:#F1C232; font-size:13px;">
+        © ${new Date().getFullYear()} Mendel Academy. All rights reserved.<br>
+        <a href="https://mendelacademy.com/" style="color:#F1C232; text-decoration:underline;">mendelacademy.com</a>
+      </td>
+    </tr>
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
 
 module.exports = {
-    sendWelcomeEmail,
-    transport,
-    sendEmail,
-    sendResetPasswordEmail,
-    sendVerificationEmail,
-    sendLeaveRequestEmail,
+  sendWelcomeEmail,
+  transport,
+  sendEmail,
+  sendResetPasswordEmail,
+  sendVerificationEmail,
+  sendLeaveRequestEmail,
+  sendEnrollmentConfirmationEmail
 };
