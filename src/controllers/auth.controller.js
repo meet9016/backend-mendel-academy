@@ -8,6 +8,7 @@ const { sendWelcomeEmail } = require('../services/email.service');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { createZoomMeeting } = require('../services/zoom.service');
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -81,6 +82,9 @@ const register = {
       // 3️⃣ Generate auth token
       const token = await tokenService.generateAuthTokens(newUser);
 
+       // 4️⃣ Create Zoom meeting (valid 5 min)
+      const zoomMeeting = await createZoomMeeting(`Welcome ${newUser.first_name}`);
+
       // 4️⃣ Send welcome email
       await sendWelcomeEmail(newUser.email, newUser.first_name);
 
@@ -98,6 +102,7 @@ const register = {
           phone: newUser.phone,
           profile_photo: newUser.profile_photo,
         },
+        zoom_meeting: zoomMeeting,
         token,
       });
 
