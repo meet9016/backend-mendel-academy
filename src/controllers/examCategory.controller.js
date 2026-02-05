@@ -105,6 +105,13 @@ const createExamCategory = {
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
+      rapid_learning_tools: Joi.array().items(
+        Joi.object({
+          tool_type: Joi.string().trim().optional(),
+          price_usd: Joi.number().allow("").optional(),
+          price_inr: Joi.number().allow("").optional(),
+        })
+      ).optional(),
       who_can_enroll_title: Joi.string().trim().required(),
       who_can_enroll_description: Joi.string().trim().required(),
       who_can_enroll_image: Joi.string().optional(),
@@ -113,7 +120,7 @@ const createExamCategory = {
 
   handler: async (req, res) => {
     try {
-      const { category_name, exams, choose_plan_list, who_can_enroll_title,
+      const { category_name, exams, choose_plan_list, rapid_learning_tools, who_can_enroll_title,
         who_can_enroll_description,
       } = req.body;
 
@@ -168,6 +175,7 @@ const createExamCategory = {
         category_name,
         exams: updatedExams,
         choose_plan_list,
+        rapid_learning_tools,
         who_can_enroll_title,
         who_can_enroll_description,
         who_can_enroll_image: enrollImageUrl,
@@ -385,6 +393,15 @@ const updateExamCategory = {
         })
       ).optional(),
 
+      rapid_learning_tools: Joi.array().items(
+        Joi.object({
+          _id: Joi.string().optional(),
+          tool_type: Joi.string().trim().optional(),
+          price_usd: Joi.number().allow("").optional(),
+          price_inr: Joi.number().allow("").optional(),
+        })
+      ).optional(),
+
       who_can_enroll_title: Joi.string().trim().optional(),
       who_can_enroll_description: Joi.string().trim().optional(),
       who_can_enroll_image: Joi.string().trim().optional(),
@@ -398,6 +415,7 @@ const updateExamCategory = {
         category_name,
         exams,
         choose_plan_list,
+        rapid_learning_tools,
         who_can_enroll_title,
         who_can_enroll_description,
         who_can_enroll_image,
@@ -487,6 +505,31 @@ const updateExamCategory = {
               plan_type: plan.plan_type,
               plan_sub_title: plan.plan_sub_title || [],
               most_popular: plan.most_popular ?? false,
+            });
+          }
+        });
+      }
+
+      if (rapid_learning_tools && Array.isArray(rapid_learning_tools)) {
+        rapid_learning_tools.forEach(tool => {
+          // UPDATE EXISTING TOOL
+          if (tool._id) {
+            const existingTool = existingCategory.rapid_learning_tools.id(tool._id);
+            if (existingTool) {
+              if (tool.tool_type !== undefined)
+                existingTool.tool_type = tool.tool_type;
+              if (tool.price_usd !== undefined)
+                existingTool.price_usd = tool.price_usd;
+              if (tool.price_inr !== undefined)
+                existingTool.price_inr = tool.price_inr;
+            }
+          }
+          // ADD NEW TOOL (NO _id)
+          else {
+            existingCategory.rapid_learning_tools.push({
+              tool_type: tool.tool_type,
+              price_usd: tool.price_usd,
+              price_inr: tool.price_inr,
             });
           }
         });

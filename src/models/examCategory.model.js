@@ -61,6 +61,18 @@ const examListSchema = mongoose.Schema(
         default: false,
       },
     }],
+    rapid_learning_tools: [{
+      tool_type: {
+        type: String,
+        trim: true,
+      },
+      price_usd: {
+        type: Number,
+      },
+      price_inr: {
+        type: Number,
+      },
+    }],
     who_can_enroll_title: { type: String, trim: true },
     who_can_enroll_description: { type: String, trim: true },
     who_can_enroll_image: { type: String, trim: true },
