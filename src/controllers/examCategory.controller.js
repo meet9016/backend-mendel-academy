@@ -420,7 +420,7 @@ const updateExamCategory = {
         who_can_enroll_description,
         who_can_enroll_image,
       } = req.body;
-
+      
       const existingCategory = await ExamCategory.findById(_id);
       if (!existingCategory) {
         return res.status(404).json({ message: "Exam category not found" });
@@ -511,27 +511,21 @@ const updateExamCategory = {
       }
 
       if (rapid_learning_tools && Array.isArray(rapid_learning_tools)) {
-        rapid_learning_tools.forEach(tool => {
-          // UPDATE EXISTING TOOL
+        existingCategory.rapid_learning_tools = rapid_learning_tools.map(tool => {
           if (tool._id) {
             const existingTool = existingCategory.rapid_learning_tools.id(tool._id);
-            if (existingTool) {
-              if (tool.tool_type !== undefined)
-                existingTool.tool_type = tool.tool_type;
-              if (tool.price_usd !== undefined)
-                existingTool.price_usd = tool.price_usd;
-              if (tool.price_inr !== undefined)
-                existingTool.price_inr = tool.price_inr;
-            }
+            return existingTool ? {
+              _id: tool._id,
+              tool_type: tool.tool_type ?? existingTool.tool_type,
+              price_usd: tool.price_usd ?? existingTool.price_usd,
+              price_inr: tool.price_inr ?? existingTool.price_inr,
+            } : tool;
           }
-          // ADD NEW TOOL (NO _id)
-          else {
-            existingCategory.rapid_learning_tools.push({
-              tool_type: tool.tool_type,
-              price_usd: tool.price_usd,
-              price_inr: tool.price_inr,
-            });
-          }
+          return {
+            tool_type: tool.tool_type,
+            price_usd: tool.price_usd,
+            price_inr: tool.price_inr,
+          };
         });
       }
 
