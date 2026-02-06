@@ -462,12 +462,11 @@ const sendLeaveRequestEmail = async (to, token, leaveData) => {
 
   await transport.sendMail(msg);
 };
-
 const sendEnrollmentConfirmationEmail = async (
   to,
   name,
   productName,
-  zoomLink = "",
+  zoomData = null,
   orderId = "",
 ) => {
   const subject = `Enrollment Confirmed! Welcome to ${productName} at Mendel Academy 🎉`;
@@ -478,73 +477,68 @@ const sendEnrollmentConfirmationEmail = async (
     subject,
     html: `
 <div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:620px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-    
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width:620px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
     <!-- Header -->
     <tr>
       <td style="background:#232323; text-align:center; padding:35px 20px;">
-        <img src="https://mendelacademy.com/_next/image?url=%2Fblog-images%2FTop%206%20Best%20USMLE%20Coaching%20Centers%20in%20India.jpg&w=3840&q=80" 
-             alt="Mendel Academy" 
-             style="max-width:180px; height:auto; margin-bottom:15px; border-radius:8px;" />
-        <h1 style="color:#F1C232; margin:10px 0 0; font-size:28px; font-weight:bold;">
-          Enrollment Confirmed!
-        </h1>
+        <img src="https://mendelacademy.com/_next/image?url=%2Fblog-images%2FTop%206%20Best%20USMLE%20Coaching%20Centers%20in%20India.jpg&w=3840&q=80"
+             style="max-width:180px; border-radius:8px;" />
+        <h1 style="color:#F1C232; margin-top:15px;">Enrollment Confirmed!</h1>
       </td>
     </tr>
 
     <!-- Body -->
     <tr>
       <td style="padding:35px 30px; color:#333; font-size:15px; line-height:1.7;">
-        <h2 style="margin:0 0 20px; color:#232323;">Hi ${name}, 🎓</h2>
-        
-        <p>Thank you for enrolling in <strong>${productName}</strong>!</p>
-        <p>Your payment has been successfully processed ${
-          orderId ? ` (Order ID: <strong>${orderId}</strong>)` : ""
-        }.</p>
-        
-        <p style="margin:25px 0 15px;">
-          You're now officially part of <strong>Mendel Academy</strong> — we're excited to help you succeed!
+        <h2>Hi ${name}, 🎓</h2>
+
+        <p>
+          You have successfully enrolled in <strong>${productName}</strong>
+          ${orderId ? `(Order ID: <strong>${orderId}</strong>)` : ""}.
         </p>
 
-        <!-- Zoom / Meeting Section -->
         ${
-          zoomLink
+          zoomData
             ? `
-            <div style="margin:30px 0; padding:25px; background:#f0f7ff; border-left:5px solid #007bff; border-radius:8px;">
-              <p style="margin:0 0 12px; font-size:17px; font-weight:bold; color:#007bff;">
-                Your Welcome/Orientation Session is Ready!
-              </p>
-              <a href="${zoomLink}" target="_blank" 
-                 style="display:inline-block; background:#007bff; color:white; padding:14px 28px; 
-                        text-decoration:none; border-radius:6px; font-size:16px; font-weight:500;">
-                Join Zoom Meeting →
+          <!-- Zoom Details -->
+          <div style="margin:30px 0; padding:25px; background:#f0f7ff; border-left:5px solid #007bff; border-radius:8px;">
+            <h3 style="margin-top:0; color:#007bff;">
+              🎥 Orientation / Live Class Details
+            </h3>
+
+            <p><strong>Meeting ID:</strong> ${zoomData.meetingId}</p>
+            <p><strong>Meeting Password:</strong> ${zoomData.password}</p>
+
+            <a href="${zoomData.joinUrl}" target="_blank"
+               style="display:inline-block; margin-top:15px; background:#007bff; color:#fff;
+                      padding:14px 28px; text-decoration:none; border-radius:6px; font-size:16px;">
+              Join Zoom Meeting →
+            </a>
+
+            <p style="margin-top:15px; font-size:13px; color:#555;">
+              If button doesn’t work, copy this link:<br/>
+              <a href="${zoomData.joinUrl}" target="_blank" style="color:#007bff; word-break:break-all;">
+                ${zoomData.joinUrl}
               </a>
-              <p style="margin:15px 0 0; font-size:14px; color:#555;">
-                Or copy-paste the link:<br>
-                <a href="${zoomLink}" target="_blank" style="color:#007bff; word-break:break-all;">${zoomLink}</a>
-              </p>
-              <p style="margin:20px 0 0; font-size:13px; color:#777;">
-                <em>Please join on time — see you there!</em>
-              </p>
-            </div>
-            `
+            </p>
+          </div>
+          `
             : `
-            <div style="margin:30px 0; padding:20px; background:#fff8e1; border-left:5px solid #F1C232; border-radius:8px;">
-              <p style="margin:0; font-size:15px; color:#856404;">
-                <strong>Zoom link coming soon!</strong><br>
-                We'll send your class/orientation Zoom link in a separate email within 24 hours.
-              </p>
-            </div>
-            `
+          <div style="margin:30px 0; padding:20px; background:#fff8e1; border-left:5px solid #F1C232;">
+            <p><strong>Zoom link coming soon!</strong><br/>
+            We will email your class link within 24 hours.</p>
+          </div>
+          `
         }
 
-        <p style="margin:30px 0 10px;">
-          If you have any questions about your course, schedule, or anything else — just reply to this email.
+        <p>
+          For any help, just reply to this email — we’re here for you.
         </p>
 
-        <p style="margin-top:35px;">
-          Best wishes for your success,<br>
-          <strong>The Mendel Academy Team</strong>
+        <p style="margin-top:30px;">
+          Best regards,<br/>
+          <strong>Mendel Academy Team</strong>
         </p>
       </td>
     </tr>
@@ -552,10 +546,10 @@ const sendEnrollmentConfirmationEmail = async (
     <!-- Footer -->
     <tr>
       <td style="background:#232323; padding:20px; text-align:center; color:#F1C232; font-size:13px;">
-        © ${new Date().getFullYear()} Mendel Academy. All rights reserved.<br>
-        <a href="https://mendelacademy.com/" style="color:#F1C232; text-decoration:underline;">mendelacademy.com</a>
+        © ${new Date().getFullYear()} Mendel Academy
       </td>
     </tr>
+
   </table>
 </div>
     `,
@@ -563,6 +557,7 @@ const sendEnrollmentConfirmationEmail = async (
 
   await transporter.sendMail(mailOptions);
 };
+
 
 module.exports = {
   sendWelcomeEmail,

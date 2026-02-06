@@ -1,7 +1,7 @@
 const httpStatus = require("http-status");
 const ApiError = require("../utils/ApiError");
 const Joi = require("joi");
-const { Payment, LiveCourses } = require("../models");
+const { Payment, LiveCourses, HyperSpecialist } = require("../models");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const Stripe = require("stripe");
@@ -15,6 +15,7 @@ const ExcelJS = require("exceljs");
 const {
   sendEnrollmentConfirmationEmail,
 } = require("../services/email.service");
+const { createZoomMeeting } = require("../services/zoom.service");
 
 // =====================
 // 📦 Create Razorpay Payment
@@ -195,12 +196,30 @@ const verifyPayment = {
         $set: { bucket_type: false },
       });
       let liveCoursesData = await LiveCourses.findById(plan_id);
+      let HyperSpecialistData = await HyperSpecialist.findById(plan_id);
       if (liveCoursesData) {
+        const zoomMeeting = await createZoomMeeting(
+          `Welcome ${payment.full_name}`,
+        );
+        await LiveCourses.findByIdAndUpdate(plan_id, {
+          zoom_link: zoomMeeting.joinUrl,
+        });
         await sendEnrollmentConfirmationEmail(
           payment.email,
           payment.full_name,
           liveCoursesData.course_title,
-          liveCoursesData.zoom_link,
+          zoomMeeting,
+          razorpay_order_id,
+        );
+      } else if (HyperSpecialistData) {
+        const zoomMeeting = await createZoomMeeting(
+          `Welcome ${payment.full_name}`,
+        );
+        await sendEnrollmentConfirmationEmail(
+          payment.email,
+          payment.full_name,
+          HyperSpecialistData.title,
+          zoomMeeting,
           razorpay_order_id,
         );
       }

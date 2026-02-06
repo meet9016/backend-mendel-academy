@@ -5,8 +5,6 @@ const catchAsync = require('../../utils/catchAsync');
 const { cartController } = require('../../controllers');
 
 const router = express.Router();
-
-// ✅ Add PreRecord product to cart (existing)
 router.post('/create',
     validate(cartController.addToCart.validation),
     catchAsync(cartController.addToCart.handler)
