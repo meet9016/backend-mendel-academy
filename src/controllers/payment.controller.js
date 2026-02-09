@@ -14,6 +14,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const ExcelJS = require("exceljs");
 const {
   sendEnrollmentConfirmationEmail,
+  sendEnrollmentConfirmationEmailforCreateLink,
 } = require("../services/email.service");
 const { createZoomMeeting } = require("../services/zoom.service");
 
@@ -198,24 +199,18 @@ const verifyPayment = {
       let liveCoursesData = await LiveCourses.findById(plan_id);
       let HyperSpecialistData = await HyperSpecialist.findById(plan_id);
       if (liveCoursesData) {
-        const zoomMeeting = await createZoomMeeting(
-          `Welcome ${payment.full_name}`,
-        );
-        await LiveCourses.findByIdAndUpdate(plan_id, {
-          zoom_link: zoomMeeting.joinUrl,
-        });
         await sendEnrollmentConfirmationEmail(
           payment.email,
           payment.full_name,
           liveCoursesData.course_title,
-          zoomMeeting,
+          liveCoursesData.zoom_link,
           razorpay_order_id,
         );
       } else if (HyperSpecialistData) {
         const zoomMeeting = await createZoomMeeting(
           `Welcome ${payment.full_name}`,
         );
-        await sendEnrollmentConfirmationEmail(
+        await sendEnrollmentConfirmationEmailforCreateLink(
           payment.email,
           payment.full_name,
           HyperSpecialistData.title,
