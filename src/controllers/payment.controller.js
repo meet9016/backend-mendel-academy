@@ -1,7 +1,7 @@
 const httpStatus = require("http-status");
 const ApiError = require("../utils/ApiError");
 const Joi = require("joi");
-const { Payment, LiveCourses, HyperSpecialist } = require("../models");
+const { Payment, LiveCourses, HyperSpecialist, PreRecord } = require("../models");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const Stripe = require("stripe");
@@ -15,6 +15,7 @@ const ExcelJS = require("exceljs");
 const {
   sendEnrollmentConfirmationEmail,
   sendEnrollmentConfirmationEmailforCreateLink,
+  sendEnrollmentConfirmationEmailForPreRecord,
 } = require("../services/email.service");
 const { createZoomMeeting } = require("../services/zoom.service");
 
@@ -198,6 +199,9 @@ const verifyPayment = {
       });
       let liveCoursesData = await LiveCourses.findById(plan_id);
       let HyperSpecialistData = await HyperSpecialist.findById(plan_id);
+      let PreRecordData = await PreRecord.findById(plan_id);
+      console.log("DEBUG : PreRecordData:", PreRecordData);
+
       if (liveCoursesData) {
         await sendEnrollmentConfirmationEmail(
           payment.email,
@@ -215,6 +219,14 @@ const verifyPayment = {
           payment.full_name,
           HyperSpecialistData.title,
           zoomMeeting,
+          razorpay_order_id,
+        );
+      } else if (PreRecordData) {
+        await sendEnrollmentConfirmationEmailForPreRecord(
+          payment.email,
+          payment.full_name,
+          PreRecordData.title,
+          PreRecordData.vimeo_video_id,
           razorpay_order_id,
         );
       }

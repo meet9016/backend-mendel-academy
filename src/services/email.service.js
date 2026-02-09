@@ -659,6 +659,88 @@ const sendEnrollmentConfirmationEmail = async (
   await transporter.sendMail(mailOptions);
 };
 
+const sendEnrollmentConfirmationEmailForPreRecord = async (
+  to,
+  name,
+  courseTitle,
+  vimeoVideoId,
+  orderId = "",
+) => {
+  const subject = `Enrollment Confirmed! Access ${courseTitle} Now 🎉`;
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width:620px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+    <!-- Header -->
+    <tr>
+      <td style="background:#232323; text-align:center; padding:35px 20px;">
+        <img src="https://mendelacademy.com/_next/image?url=%2Fblog-images%2FTop%206%20Best%20USMLE%20Coaching%20Centers%20in%20India.jpg&w=3840&q=80"
+             style="max-width:180px; border-radius:8px;" />
+        <h1 style="color:#F1C232; margin-top:15px;">Enrollment Confirmed!</h1>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding:35px 30px; color:#333; font-size:15px; line-height:1.7;">
+        <h2>Hi ${name}, 🎓</h2>
+
+        <p>
+          You have successfully enrolled in <strong>${courseTitle}</strong>
+          ${orderId ? `(Order ID: <strong>${orderId}</strong>)` : ""}.
+        </p>
+
+        <!-- Video Access Section -->
+        <div style="margin:30px 0; padding:25px; background:#f0f7ff; border-left:5px solid #007bff; border-radius:8px;">
+          <h3 style="margin-top:0; color:#007bff;">
+            🎬 Your Course Video is Ready!
+          </h3>
+
+          <p><strong>Course:</strong> ${courseTitle}</p>
+          <p><strong>Video Link:</strong> <a href="${vimeoVideoId}" target="_blank" style="color:#007bff;">${vimeoVideoId}</a></p>
+
+          <a href="${vimeoVideoId}" target="_blank"
+             style="display:inline-block; margin-top:15px; background:#007bff; color:#fff;
+                    padding:14px 28px; text-decoration:none; border-radius:6px; font-size:16px;">
+            Watch Now →
+          </a>
+
+          <p style="margin-top:15px; font-size:13px; color:#555;">
+            Access your course anytime, anywhere!
+          </p>
+        </div>
+
+        <p>
+          For any help, just reply to this email — we're here for you.
+        </p>
+
+        <p style="margin-top:30px;">
+          Best regards,<br/>
+          <strong>Mendel Academy Team</strong>
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#232323; padding:20px; text-align:center; color:#F1C232; font-size:13px;">
+        © ${new Date().getFullYear()} Mendel Academy
+      </td>
+    </tr>
+
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 module.exports = {
   sendWelcomeEmail,
   transport,
@@ -668,4 +750,5 @@ module.exports = {
   sendLeaveRequestEmail,
   sendEnrollmentConfirmationEmail,
   sendEnrollmentConfirmationEmailforCreateLink,
+  sendEnrollmentConfirmationEmailForPreRecord,
 };
