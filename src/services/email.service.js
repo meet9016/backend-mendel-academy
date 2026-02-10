@@ -659,6 +659,80 @@ const sendEnrollmentConfirmationEmail = async (
   await transporter.sendMail(mailOptions);
 };
 
+const sendWelcomeAccountEmail = async (
+  to,
+  name,
+  loginEmail,
+  password
+) => {
+  const subject = `Welcome to Mendel Academy 🎉 Your Login Details`;
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0"
+    style="max-width:600px; margin:30px auto; background:#ffffff; border-radius:10px; overflow:hidden;">
+
+    <!-- Header -->
+    <tr>
+      <td style="background:#232323; padding:30px; text-align:center;">
+        <h1 style="color:#F1C232; margin:0;">Welcome to Mendel Academy 🎓</h1>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding:30px; color:#333; font-size:15px; line-height:1.6;">
+        <p>Hi <strong>${name}</strong>, 👋</p>
+
+        <p>
+          Your account has been successfully created at
+          <strong>Mendel Academy</strong>.
+        </p>
+
+        <p style="margin:20px 0;"><strong>Your Login Credentials:</strong></p>
+
+        <table cellpadding="10" cellspacing="0" style="background:#f7f7f7; border-radius:6px;">
+          <tr>
+            <td><strong>Email:</strong></td>
+            <td>${loginEmail}</td>
+          </tr>
+          <tr>
+            <td><strong>Password:</strong></td>
+            <td>${password}</td>
+          </tr>
+        </table>
+
+        <p style="margin-top:25px; font-size:14px; color:#555;">
+          Please login and change your password after first login for security reasons.
+        </p>
+
+        <p style="margin-top:30px;">
+          Best regards,<br/>
+          <strong>Mendel Academy Team</strong>
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#232323; padding:15px; text-align:center; color:#F1C232; font-size:12px;">
+        © ${new Date().getFullYear()} Mendel Academy
+      </td>
+    </tr>
+
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+
 const sendEnrollmentConfirmationEmailForPreRecord = async (
   to,
   name,
@@ -751,4 +825,5 @@ module.exports = {
   sendEnrollmentConfirmationEmail,
   sendEnrollmentConfirmationEmailforCreateLink,
   sendEnrollmentConfirmationEmailForPreRecord,
+  sendWelcomeAccountEmail
 };

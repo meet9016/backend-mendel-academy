@@ -1,7 +1,13 @@
 const httpStatus = require("http-status");
 const ApiError = require("../utils/ApiError");
 const Joi = require("joi");
-const { Payment, LiveCourses, HyperSpecialist, PreRecord } = require("../models");
+const {
+  Payment,
+  LiveCourses,
+  HyperSpecialist,
+  PreRecord,
+  User,
+} = require("../models");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const Stripe = require("stripe");
@@ -16,12 +22,45 @@ const {
   sendEnrollmentConfirmationEmail,
   sendEnrollmentConfirmationEmailforCreateLink,
   sendEnrollmentConfirmationEmailForPreRecord,
+  sendWelcomeAccountEmail,
 } = require("../services/email.service");
 const { createZoomMeeting } = require("../services/zoom.service");
 
 // =====================
 // 📦 Create Razorpay Payment
 // =====================
+
+function generatePassword(
+  length = 12,
+  options = {
+    lowercase: true,
+    uppercase: true,
+    numbers: true,
+    symbols: true,
+  },
+) {
+  const lower = "abcdefghijklmnopqrstuvwxyz";
+  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const nums = "0123456789";
+  const syms = "!@#$%^&*()_+[]{}<>?,.";
+
+  let chars = "";
+
+  if (options.lowercase) chars += lower;
+  if (options.uppercase) chars += upper;
+  if (options.numbers) chars += nums;
+  if (options.symbols) chars += syms;
+
+  if (!chars) return "";
+
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * chars.length);
+    password += chars[randomIndex];
+  }
+
+  return password;
+}
 const createPayment = {
   validation: {
     body: Joi.object().keys({
@@ -200,8 +239,27 @@ const verifyPayment = {
       let liveCoursesData = await LiveCourses.findById(plan_id);
       let HyperSpecialistData = await HyperSpecialist.findById(plan_id);
       let PreRecordData = await PreRecord.findById(plan_id);
-      console.log("DEBUG : PreRecordData:", PreRecordData);
 
+      let usersDetails = await User.findOne({
+        email: payment.email,
+      });
+      if (!usersDetails) {
+        let password = generatePassword(6);
+
+        let user = await User.create({
+          email: payment.email,
+          password: password,
+          phone: payment.phone,
+          first_name: payment.full_name,
+          last_name: payment.full_name,
+        });
+        sendWelcomeAccountEmail(
+          user.email,
+          user.first_name,
+          user.email,
+          password,
+        );
+      }
       if (liveCoursesData) {
         await sendEnrollmentConfirmationEmail(
           payment.email,
