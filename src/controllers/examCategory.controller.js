@@ -393,13 +393,16 @@ const updateExamCategory = {
         })
       ).optional(),
 
-      rapid_learning_tools: Joi.array().items(
-        Joi.object({
-          _id: Joi.string().optional(),
-          tool_type: Joi.string().trim().optional(),
-          price_usd: Joi.number().allow("").optional(),
-          price_inr: Joi.number().allow("").optional(),
-        })
+      rapid_learning_tools: Joi.alternatives().try(
+        Joi.array().items(
+          Joi.object({
+            _id: Joi.string().optional(),
+            tool_type: Joi.string().trim().optional(),
+            price_usd: Joi.number().allow("").optional(),
+            price_inr: Joi.number().allow("").optional(),
+          })
+        ),
+        Joi.string() // Allow JSON string for empty array case
       ).optional(),
 
       who_can_enroll_title: Joi.string().trim().optional(),
@@ -510,22 +513,30 @@ const updateExamCategory = {
         });
       }
 
-      if (rapid_learning_tools && Array.isArray(rapid_learning_tools)) {
-        existingCategory.rapid_learning_tools = rapid_learning_tools.map(tool => {
-          if (tool._id) {
-            const existingTool = existingCategory.rapid_learning_tools.id(tool._id);
-            return existingTool ? {
-              _id: tool._id,
-              tool_type: tool.tool_type ?? existingTool.tool_type,
-              price_usd: tool.price_usd ?? existingTool.price_usd,
-              price_inr: tool.price_inr ?? existingTool.price_inr,
-            } : tool;
+      // Handle rapid_learning_tools (can be array or JSON string for empty array)
+      let parsedRapidTools = rapid_learning_tools;
+      if (typeof rapid_learning_tools === 'string') {
+        try {
+          parsedRapidTools = JSON.parse(rapid_learning_tools);
+        } catch (e) {
+          parsedRapidTools = [];
+        }
+      }
+
+      if (parsedRapidTools !== undefined && Array.isArray(parsedRapidTools)) {
+        // Clear existing tools first
+        existingCategory.rapid_learning_tools = [];
+        
+        // Add new/updated tools
+        parsedRapidTools.forEach(tool => {
+          if (tool.tool_type && (tool.price_usd || tool.price_inr)) {
+            existingCategory.rapid_learning_tools.push({
+              ...(tool._id && { _id: tool._id }),
+              tool_type: tool.tool_type,
+              price_usd: tool.price_usd,
+              price_inr: tool.price_inr,
+            });
           }
-          return {
-            tool_type: tool.tool_type,
-            price_usd: tool.price_usd,
-            price_inr: tool.price_inr,
-          };
         });
       }
 
