@@ -30,8 +30,8 @@ const getPriceForCurrency = (priceUsd, priceInr, currency) => {
 const addToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string(),
-            user_id: Joi.string(),
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
             product_id: Joi.string().required(),
             selected_options: Joi.array()
                 .items(Joi.string().valid('record-book', 'video', 'writing-book'))
@@ -97,8 +97,10 @@ const addToCart = {
             }
 
             let cartItem = await Cart.findOne(query);
+            let alreadyExists = false;
 
             if (cartItem) {
+                alreadyExists = true;
                 cartItem.selected_options = selected_options;
                 cartItem.total_price = total_price;
                 cartItem.currency = displayCurrency;
@@ -126,9 +128,10 @@ const addToCart = {
 
             return res.status(200).send({
                 success: true,
-                message: cartItem.isNew ? "Product added to cart successfully" : "Cart updated successfully",
+                message: alreadyExists ? "Product already in cart" : "Product added to cart successfully",
                 cart: cartItem,
                 count: totalItems,
+                alreadyInCart: alreadyExists,
             });
 
         } catch (error) {
@@ -151,8 +154,8 @@ const addToCart = {
 const addExamPlanToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string(),
-            user_id: Joi.string(),
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
             exam_category_id: Joi.string().required(),
             plan_id: Joi.string().required(),
             bucket_type: Joi.boolean(),
@@ -307,8 +310,8 @@ const addExamPlanToCart = {
 const addHyperSpecialistToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string(),
-            user_id: Joi.string(),
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
             hyperspecialist_id: Joi.string().required(),
             bucket_type: Joi.boolean(),
         }),
@@ -426,10 +429,10 @@ const addHyperSpecialistToCart = {
 const addLiveCoursesToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string(),
-            user_id: Joi.string(),
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
             livecourse_id: Joi.string().required(),
-            livecourse_module_id: Joi.string().required(), // Can be subdocument _id OR index
+            livecourse_module_id: Joi.string().required(),
             bucket_type: Joi.boolean(),
         }),
     },
@@ -630,8 +633,8 @@ const addLiveCoursesToCart = {
 const addRapidToolToCart = {
     validation: {
         body: Joi.object().keys({
-            temp_id: Joi.string(),
-            user_id: Joi.string(),
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
             exam_category_id: Joi.string().required(),
             tool_id: Joi.string().required(),
             bucket_type: Joi.boolean(),

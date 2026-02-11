@@ -24,6 +24,7 @@ const {
   sendEnrollmentConfirmationEmailforCreateLink,
   sendEnrollmentConfirmationEmailForPreRecord,
   sendWelcomeAccountEmail,
+  sendPurchaseConfirmationEmail,
 } = require("../services/email.service");
 const { createZoomMeeting } = require("../services/zoom.service");
 
@@ -68,9 +69,9 @@ const createPayment = {
       full_name: Joi.string().allow("").optional(),
       email: Joi.string().allow("").optional(),
       phone: Joi.string().allow("").optional(),
-      plan_id: Joi.string(),
-      user_id: Joi.string(),
-      guest_id: Joi.string(),
+      plan_id: Joi.string().allow(null, "").optional(),
+      user_id: Joi.string().allow(null, "").optional(),
+      guest_id: Joi.string().allow(null, "").optional(),
       amount: Joi.number().required(),
       currency: Joi.string().allow(""),
       payment_method: Joi.string()
@@ -227,86 +228,27 @@ const verifyPayment = {
 
       // Guest User → guest_xxxxx
       if (typeof user_id === "string" && user_id.startsWith("guest_")) {
-        matchQuery = { temp_id: user_id };
+        matchQuery = { temp_id: user_id, bucket_type: true };
       }
       // Logged In User
       else {
-        matchQuery = { user_id };
+        matchQuery = { user_id, bucket_type: true };
       }
-
+            
+      // ✅ Get cart items BEFORE updating (only active cart items)
+      const cartItems = await Cart.find(matchQuery);
+      
+      // ✅ Update cart items to mark as purchased
       await Cart.updateMany(matchQuery, {
         $set: { bucket_type: false },
       });
-            
-      // ✅ Initialize variables
-      let liveCoursesData = null;
-      let HyperSpecialistData = null;
-      let PreRecordData = null;
-      let ExamPlanData = null;
+      console.log(`\n🛒 [RAZORPAY] Found ${cartItems.length} cart items for order ${razorpay_order_id}`);
       
-      // ✅ Only query if plan_id is valid
-      if (plan_id && plan_id.trim() !== '') {
-        // Check if it's a valid ObjectId format (24 hex characters)
-        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(plan_id);
-        
-        if (isValidObjectId) {
-          // Try to find in main collections
-          liveCoursesData = await LiveCourses.findById(plan_id).catch(() => null);
-          if (!liveCoursesData) {
-            HyperSpecialistData = await HyperSpecialist.findById(plan_id).catch(() => null);
-          }
-          if (!HyperSpecialistData) {
-            PreRecordData = await PreRecord.findById(plan_id).catch(() => null);
-          }
-        }
-        
-        // ✅ If not found in main collections, check exam plans and rapid tools
-        if (!liveCoursesData && !HyperSpecialistData && !PreRecordData) {
-          // Check exam plans
-          const examCategory = await ExamCategory.findOne({
-            "choose_plan_list._id": plan_id
-          }).catch(() => null);
-          
-          if (examCategory) {
-            const plan = examCategory.choose_plan_list.id(plan_id);
-            if (plan) {
-              ExamPlanData = {
-                category_name: examCategory.category_name,
-                plan_type: plan.plan_type,
-                plan_month: plan.plan_month,
-                exam_category_id: examCategory._id
-              };
-            }
-          }
-          
-          // ✅ NEW: Check rapid tools if exam plan not found
-          if (!ExamPlanData) {
-            const examCategoryWithTool = await ExamCategory.findOne({
-              "rapid_learning_tools._id": plan_id
-            }).catch(() => null);
-            
-            if (examCategoryWithTool) {
-              const tool = examCategoryWithTool.rapid_learning_tools.id(plan_id);
-              if (tool) {
-                ExamPlanData = {
-                  category_name: examCategoryWithTool.category_name,
-                  plan_type: `Rapid Tool - ${tool.tool_type}`,
-                  plan_month: 0,
-                  exam_category_id: examCategoryWithTool._id,
-                  is_rapid_tool: true
-                };
-              }
-            }
-          }
-        }
-      } 
-
-      let usersDetails = await User.findOne({
-        email: payment.email,
-      });
+      // ✅ Create user account if doesn't exist (do this first)
+      let usersDetails = await User.findOne({ email: payment.email });
       if (!usersDetails) {
-        let password = generatePassword(6);
-
+        let password = generatePassword(8, { lowercase: true, uppercase: true, numbers: true, symbols: false });
+        console.log(`👤 [RAZORPAY] Creating new user account for ${payment.email}`);
         let user = await User.create({
           email: payment.email,
           password: password,
@@ -314,41 +256,102 @@ const verifyPayment = {
           first_name: payment.full_name,
           last_name: payment.full_name,
         });
-        sendWelcomeAccountEmail(
+        await sendWelcomeAccountEmail(
           user.email,
           user.first_name,
           user.email,
           password,
         );
+        console.log(`✅ [RAZORPAY] Welcome email sent to ${payment.email}`);
       }
-      if (liveCoursesData) {
-        await sendEnrollmentConfirmationEmail(
-          payment.email,
-          payment.full_name,
-          liveCoursesData.course_title,
-          liveCoursesData.zoom_link,
-          razorpay_order_id,
-        );
-      } else if (HyperSpecialistData) {
-        const zoomMeeting = await createZoomMeeting(
-          `Welcome ${payment.full_name}`,
-        );
-        await sendEnrollmentConfirmationEmailforCreateLink(
-          payment.email,
-          payment.full_name,
-          HyperSpecialistData.title,
-          zoomMeeting,
-          razorpay_order_id,
-        );
-      } else if (PreRecordData) {
-        await sendEnrollmentConfirmationEmailForPreRecord(
-          payment.email,
-          payment.full_name,
-          PreRecordData.title,
-          PreRecordData.vimeo_video_id,
-          razorpay_order_id,
-        );
+      
+      // ✅ Send enrollment emails for ALL cart items
+      for (let i = 0; i < cartItems.length; i++) {
+        const cartItem = cartItems[i];
+        console.log(`\n📧 [RAZORPAY] Processing cart item ${i + 1}/${cartItems.length}:`, {
+          cart_type: cartItem.cart_type,
+          livecourse_id: cartItem.livecourse_id,
+          hyperspecialist_id: cartItem.hyperspecialist_id,
+          product_id: cartItem.product_id,
+          exam_category_id: cartItem.exam_category_id,
+        });
+        
+        if (cartItem.cart_type === 'livecourses' && cartItem.livecourse_id) {
+          console.log(`🎓 [RAZORPAY] Sending LiveCourse enrollment email...`);
+          const course = await LiveCourses.findById(cartItem.livecourse_id).catch(() => null);
+          if (course) {
+            await sendEnrollmentConfirmationEmail(
+              payment.email,
+              payment.full_name,
+              `${course.course_title} - ${cartItem.livecourse_details?.title || 'Module'}`,
+              course.zoom_link,
+              razorpay_order_id,
+            );
+            console.log(`✅ [RAZORPAY] LiveCourse email sent: ${course.course_title}`);
+          }
+        } else if (cartItem.cart_type === 'hyperspecialist' && cartItem.hyperspecialist_id) {
+          console.log(`🎯 [RAZORPAY] Sending HyperSpecialist enrollment email...`);
+          const hyperSpecialist = await HyperSpecialist.findById(cartItem.hyperspecialist_id).catch(() => null);
+          if (hyperSpecialist) {
+            const zoomMeeting = await createZoomMeeting(`Welcome ${payment.full_name}`);
+            await sendEnrollmentConfirmationEmailforCreateLink(
+              payment.email,
+              payment.full_name,
+              hyperSpecialist.title,
+              zoomMeeting,
+              razorpay_order_id,
+            );
+            console.log(`✅ [RAZORPAY] HyperSpecialist email sent: ${hyperSpecialist.title}`);
+          }
+        } else if (cartItem.cart_type === 'prerecord' && cartItem.product_id) {
+          console.log(`📹 [RAZORPAY] Sending PreRecord enrollment email...`);
+          const preRecord = await PreRecord.findById(cartItem.product_id).catch(() => null);
+          if (preRecord) {
+            await sendEnrollmentConfirmationEmailForPreRecord(
+              payment.email,
+              payment.full_name,
+              preRecord.title,
+              preRecord.vimeo_video_id,
+              razorpay_order_id,
+            );
+            console.log(`✅ [RAZORPAY] PreRecord email sent: ${preRecord.title}`);
+          }
+        } else if (cartItem.cart_type === 'exam_plan' && cartItem.exam_category_id) {
+          console.log(`📝 [RAZORPAY] Sending ExamPlan purchase email...`);
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            await sendPurchaseConfirmationEmail(
+              payment.email,
+              payment.full_name,
+              examCategory.category_name,
+              `${cartItem.plan_details?.plan_type} Plan`,
+              razorpay_order_id,
+            );
+            console.log(`✅ [RAZORPAY] ExamPlan email sent: ${examCategory.category_name}`);
+          } else {
+            console.log(`❌ [RAZORPAY] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+          }
+        } else if (cartItem.cart_type === 'rapid_tool' && cartItem.exam_category_id) {
+          console.log(`⚡ [RAZORPAY] Sending RapidTool purchase email...`);
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const toolName = cartItem.tool_details?.tool_type || 'Rapid Learning Tool';
+            await sendPurchaseConfirmationEmail(
+              payment.email,
+              payment.full_name,
+              examCategory.category_name,
+              toolName,
+              razorpay_order_id,
+            );
+            console.log(`✅ [RAZORPAY] RapidTool email sent: ${examCategory.category_name} - ${toolName}`);
+          } else {
+            console.log(`❌ [RAZORPAY] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+          }
+        } else {
+          console.log(`⚠️ [RAZORPAY] Unknown cart_type or missing required ID:`, cartItem.cart_type);
+        }
       }
+      console.log(`\n✅ [RAZORPAY] All emails processed for order ${razorpay_order_id}\n`);
       return res.json({
         success: true,
         message: "Payment verified & cart updated",
@@ -459,16 +462,130 @@ const verifyPaymentStripe = {
         user_id: user_id || null,
       });
 
-      // ✅ UPDATE CART CORRECTLY
+      // ✅ Get cart items BEFORE updating (only active cart items with bucket_type: true)
       const cartQuery = user_id
         ? { user_id, bucket_type: true }
         : { temp_id, bucket_type: true };
+      
+      const cartItems = await Cart.find(cartQuery);
+      console.log(`\n🛒 [STRIPE] Found ${cartItems.length} active cart items for payment ${paymentIntentId}`);
 
+      // ✅ UPDATE CART - mark as purchased
       const cartUpdate = await Cart.updateMany(cartQuery, {
         $set: { bucket_type: false },
       });
 
-      console.log("Cart updated:", cartUpdate.modifiedCount);
+      console.log(`🛒 [STRIPE] Cart updated: ${cartUpdate.modifiedCount} items marked as purchased`);
+      
+      // ✅ Create user account if doesn't exist (do this first)
+      let usersDetails = await User.findOne({ email: email });
+      if (!usersDetails) {
+        let password = generatePassword(8, { lowercase: true, uppercase: true, numbers: true, symbols: false });
+        console.log(`👤 [STRIPE] Creating new user account for ${email}`);
+        let user = await User.create({
+          email: email,
+          password: password,
+          phone: phone,
+          first_name: full_name,
+          last_name: full_name,
+        });
+        await sendWelcomeAccountEmail(
+          user.email,
+          user.first_name,
+          user.email,
+          password,
+        );
+        console.log(`✅ [STRIPE] Welcome email sent to ${email}`);
+      }
+      
+      // ✅ Send enrollment emails for ALL cart items
+      for (let i = 0; i < cartItems.length; i++) {
+        const cartItem = cartItems[i];
+        console.log(`\n📧 [STRIPE] Processing cart item ${i + 1}/${cartItems.length}:`, {
+          cart_type: cartItem.cart_type,
+          livecourse_id: cartItem.livecourse_id,
+          hyperspecialist_id: cartItem.hyperspecialist_id,
+          product_id: cartItem.product_id,
+          exam_category_id: cartItem.exam_category_id,
+        });
+        
+        if (cartItem.cart_type === 'livecourses' && cartItem.livecourse_id) {
+          console.log(`🎓 [STRIPE] Sending LiveCourse enrollment email...`);
+          const course = await LiveCourses.findById(cartItem.livecourse_id).catch(() => null);
+          if (course) {
+            await sendEnrollmentConfirmationEmail(
+              email,
+              full_name,
+              `${course.course_title} - ${cartItem.livecourse_details?.title || 'Module'}`,
+              course.zoom_link,
+              paymentIntentId,
+            );
+            console.log(`✅ [STRIPE] LiveCourse email sent: ${course.course_title}`);
+          }
+        } else if (cartItem.cart_type === 'hyperspecialist' && cartItem.hyperspecialist_id) {
+          console.log(`🎯 [STRIPE] Sending HyperSpecialist enrollment email...`);
+          const hyperSpecialist = await HyperSpecialist.findById(cartItem.hyperspecialist_id).catch(() => null);
+          if (hyperSpecialist) {
+            const zoomMeeting = await createZoomMeeting(`Welcome ${full_name}`);
+            await sendEnrollmentConfirmationEmailforCreateLink(
+              email,
+              full_name,
+              hyperSpecialist.title,
+              zoomMeeting,
+              paymentIntentId,
+            );
+            console.log(`✅ [STRIPE] HyperSpecialist email sent: ${hyperSpecialist.title}`);
+          }
+        } else if (cartItem.cart_type === 'prerecord' && cartItem.product_id) {
+          console.log(`📹 [STRIPE] Sending PreRecord enrollment email...`);
+          const preRecord = await PreRecord.findById(cartItem.product_id).catch(() => null);
+          if (preRecord) {
+            await sendEnrollmentConfirmationEmailForPreRecord(
+              email,
+              full_name,
+              preRecord.title,
+              preRecord.vimeo_video_id,
+              paymentIntentId,
+            );
+            console.log(`✅ [STRIPE] PreRecord email sent: ${preRecord.title}`);
+          }
+        } else if (cartItem.cart_type === 'exam_plan' && cartItem.exam_category_id) {
+          console.log(`📝 [STRIPE] Sending ExamPlan purchase email...`);
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            await sendPurchaseConfirmationEmail(
+              email,
+              full_name,
+              examCategory.category_name,
+              `${cartItem.plan_details?.plan_type} Plan`,
+              paymentIntentId,
+            );
+            console.log(`✅ [STRIPE] ExamPlan email sent: ${examCategory.category_name}`);
+          } else {
+            console.log(`❌ [STRIPE] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+          }
+        } else if (cartItem.cart_type === 'rapid_tool' && cartItem.exam_category_id) {
+          console.log(`⚡ [STRIPE] Sending RapidTool purchase email...`);
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const toolName = cartItem.tool_details?.tool_type || 'Rapid Learning Tool';
+            await sendPurchaseConfirmationEmail(
+              email,
+              full_name,
+              examCategory.category_name,
+              toolName,
+              paymentIntentId,
+            );
+            console.log(`✅ [STRIPE] RapidTool email sent: ${examCategory.category_name} - ${toolName}`);
+          } else {
+            console.log(`❌ [STRIPE] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+          }
+        } else {
+          console.log(`⚠️ [STRIPE] Unknown cart_type or missing required ID:`, cartItem.cart_type);
+        }
+      }
+      console.log(`\n✅ [STRIPE] All emails processed for payment ${paymentIntentId}\n`);
+      
       return res.json({
         success: true,
         message: "Stripe payment saved",

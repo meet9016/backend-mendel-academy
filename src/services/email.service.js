@@ -732,6 +732,77 @@ const sendWelcomeAccountEmail = async (
   await transporter.sendMail(mailOptions);
 };
 
+// ✅ NEW: Simple purchase confirmation for Exam Plans & Rapid Tools
+const sendPurchaseConfirmationEmail = async (
+  to,
+  name,
+  productName,
+  productType,
+  orderId = "",
+) => {
+  const subject = `Purchase Confirmed! ${productName} 🎉`;
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; margin:30px auto; background:#ffffff; border-radius:10px; overflow:hidden;">
+
+    <!-- Header -->
+    <tr>
+      <td style="background:#232323; padding:30px; text-align:center;">
+        <h1 style="color:#F1C232; margin:0;">Purchase Confirmed! 🎉</h1>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding:30px; color:#333; font-size:15px; line-height:1.6;">
+        <p>Hi <strong>${name}</strong>, 👋</p>
+
+        <p>
+          Thank you for your purchase at <strong>Mendel Academy</strong>!
+        </p>
+
+        <div style="margin:25px 0; padding:20px; background:#f0f7ff; border-left:5px solid #007bff; border-radius:8px;">
+          <p style="margin:0 0 10px;"><strong>Purchase Details:</strong></p>
+          <p style="margin:5px 0;"><strong>Product:</strong> ${productName}</p>
+          <p style="margin:5px 0;"><strong>Type:</strong> ${productType}</p>
+          ${orderId ? `<p style="margin:5px 0;"><strong>Order ID:</strong> ${orderId}</p>` : ""}
+        </div>
+
+        <p>
+          Your purchase has been successfully processed. You can now access your content from your dashboard.
+        </p>
+
+        <p style="margin-top:25px; font-size:14px; color:#555;">
+          If you have any questions, feel free to reply to this email.
+        </p>
+
+        <p style="margin-top:30px;">
+          Best regards,<br/>
+          <strong>Mendel Academy Team</strong>
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#232323; padding:15px; text-align:center; color:#F1C232; font-size:12px;">
+        © ${new Date().getFullYear()} Mendel Academy
+      </td>
+    </tr>
+
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 
 const sendEnrollmentConfirmationEmailForPreRecord = async (
   to,
@@ -825,5 +896,6 @@ module.exports = {
   sendEnrollmentConfirmationEmail,
   sendEnrollmentConfirmationEmailforCreateLink,
   sendEnrollmentConfirmationEmailForPreRecord,
-  sendWelcomeAccountEmail
+  sendWelcomeAccountEmail,
+  sendPurchaseConfirmationEmail,
 };
