@@ -28,6 +28,12 @@ router.post('/add-livecourse',
     catchAsync(cartController.addLiveCoursesToCart.handler)
 );
 
+// ✅ NEW: Add Rapid Tool to cart
+router.post('/add-rapid-tool',
+    validate(cartController.addRapidToolToCart.validation),
+    catchAsync(cartController.addRapidToolToCart.handler)
+);
+
 // ✅ Get all cart items (all types)
 router.get('/get', catchAsync(cartController.getCart.handler));
 

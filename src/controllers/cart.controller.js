@@ -623,6 +623,141 @@ const addLiveCoursesToCart = {
     },
 };
 
+// ✅ NEW: Add Rapid Tool to Cart
+const addRapidToolToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string(),
+            user_id: Joi.string(),
+            exam_category_id: Joi.string().required(),
+            tool_id: Joi.string().required(),
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, exam_category_id, tool_id } = req.body;
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch exam category
+            const examCategory = await ExamCategory.findById(exam_category_id);
+            if (!examCategory) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Exam category not found",
+                });
+            }
+
+            // Find the specific tool
+            const tool = examCategory.rapid_learning_tools.id(tool_id);
+            if (!tool) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Rapid tool not found",
+                });
+            }
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                tool.price_usd,
+                tool.price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                exam_category_id,
+                tool_id,
+                cart_type: 'rapid_tool',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Tool already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true,
+                });
+            } else {
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'rapid_tool',
+                    exam_category_id,
+                    tool_id,
+                    tool_details: {
+                        tool_type: tool.tool_type,
+                        price_usd: tool.price_usd,
+                        price_inr: tool.price_inr,
+                    },
+                    category_name: examCategory.category_name,
+                    total_price,
+                    currency: displayCurrency,
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Tool added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in addRapidToolToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "This tool is already in your cart",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
+        }
+    },
+};
+
 // ✅ UPDATED: Get all cart items (includes livecourses)
 const getCart = {
     handler: async (req, res) => {
@@ -1123,6 +1258,7 @@ module.exports = {
     addExamPlanToCart,
     addHyperSpecialistToCart,
     addLiveCoursesToCart,
+    addRapidToolToCart,
     getCheckoutPageTempId,
     getCart,
     getAllCart,

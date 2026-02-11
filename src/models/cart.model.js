@@ -18,7 +18,7 @@ const cartSchema = mongoose.Schema(
         // ✅ Cart type - NOW INCLUDES LIVECOURSES
         cart_type: {
             type: String,
-            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses'],
+            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses', 'rapid_tool'],
             default: 'prerecord',
             required: true,
         },
@@ -90,6 +90,19 @@ const cartSchema = mongoose.Schema(
             price_inr: Number,
             features: [String],
             isMostPopular: Boolean,
+        },
+
+        // ✅ NEW: For Rapid Tools
+        tool_id: {
+            type: String,
+            required: function () {
+                return this.cart_type === 'rapid_tool';
+            },
+        },
+        tool_details: {
+            tool_type: String,
+            price_usd: Number,
+            price_inr: Number,
         },
 
         // Common fields
@@ -217,6 +230,31 @@ cartSchema.index(
         unique: true,
         partialFilterExpression: {
             cart_type: 'livecourses',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ NEW: For Rapid Tools - prevent duplicate tool_id per user
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, tool_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'rapid_tool',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, tool_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'rapid_tool',
             bucket_type: true,
             temp_id: { $type: 'string' }
         }

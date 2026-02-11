@@ -7,6 +7,7 @@ const {
   HyperSpecialist,
   PreRecord,
   User,
+  ExamCategory,
 } = require("../models");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
@@ -236,9 +237,69 @@ const verifyPayment = {
       await Cart.updateMany(matchQuery, {
         $set: { bucket_type: false },
       });
-      let liveCoursesData = await LiveCourses.findById(plan_id);
-      let HyperSpecialistData = await HyperSpecialist.findById(plan_id);
-      let PreRecordData = await PreRecord.findById(plan_id);
+            
+      // ✅ Initialize variables
+      let liveCoursesData = null;
+      let HyperSpecialistData = null;
+      let PreRecordData = null;
+      let ExamPlanData = null;
+      
+      // ✅ Only query if plan_id is valid
+      if (plan_id && plan_id.trim() !== '') {
+        // Check if it's a valid ObjectId format (24 hex characters)
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(plan_id);
+        
+        if (isValidObjectId) {
+          // Try to find in main collections
+          liveCoursesData = await LiveCourses.findById(plan_id).catch(() => null);
+          if (!liveCoursesData) {
+            HyperSpecialistData = await HyperSpecialist.findById(plan_id).catch(() => null);
+          }
+          if (!HyperSpecialistData) {
+            PreRecordData = await PreRecord.findById(plan_id).catch(() => null);
+          }
+        }
+        
+        // ✅ If not found in main collections, check exam plans and rapid tools
+        if (!liveCoursesData && !HyperSpecialistData && !PreRecordData) {
+          // Check exam plans
+          const examCategory = await ExamCategory.findOne({
+            "choose_plan_list._id": plan_id
+          }).catch(() => null);
+          
+          if (examCategory) {
+            const plan = examCategory.choose_plan_list.id(plan_id);
+            if (plan) {
+              ExamPlanData = {
+                category_name: examCategory.category_name,
+                plan_type: plan.plan_type,
+                plan_month: plan.plan_month,
+                exam_category_id: examCategory._id
+              };
+            }
+          }
+          
+          // ✅ NEW: Check rapid tools if exam plan not found
+          if (!ExamPlanData) {
+            const examCategoryWithTool = await ExamCategory.findOne({
+              "rapid_learning_tools._id": plan_id
+            }).catch(() => null);
+            
+            if (examCategoryWithTool) {
+              const tool = examCategoryWithTool.rapid_learning_tools.id(plan_id);
+              if (tool) {
+                ExamPlanData = {
+                  category_name: examCategoryWithTool.category_name,
+                  plan_type: `Rapid Tool - ${tool.tool_type}`,
+                  plan_month: 0,
+                  exam_category_id: examCategoryWithTool._id,
+                  is_rapid_tool: true
+                };
+              }
+            }
+          }
+        }
+      } 
 
       let usersDetails = await User.findOne({
         email: payment.email,
@@ -560,7 +621,7 @@ const downloadUserWisePaymentsExcel = {
 
       const query = {
         user_id: user_id,
-        // payment_status: { $in: ["paid", "succeeded"] },
+        payment_status: { $in: ["paid", "succeeded"] },
       };
 
       // Optional date filter
