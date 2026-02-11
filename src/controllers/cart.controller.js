@@ -223,8 +223,10 @@ const addExamPlanToCart = {
             }
 
             let cartItem = await Cart.findOne(query);
+            let alreadyExists = false;
 
             if (cartItem) {
+                alreadyExists = true;
                 // ✅ Update existing cart item with ALL fields
                 cartItem.total_price = total_price;
                 cartItem.currency = displayCurrency;
@@ -278,9 +280,10 @@ const addExamPlanToCart = {
 
             return res.status(200).send({
                 success: true,
-                message: cartItem.isNew ? "Plan added to cart successfully" : "Cart updated successfully",
+                message: alreadyExists ? "Plan already in cart" : "Plan added to cart successfully",
                 cart: cartItem,
                 count: totalItems,
+                alreadyInCart: alreadyExists,
             });
 
         } catch (error) {
