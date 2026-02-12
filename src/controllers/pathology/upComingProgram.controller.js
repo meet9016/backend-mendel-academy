@@ -1,9 +1,9 @@
 const httpStatus = require('http-status');
-// const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const UpCommingProgram = require('../../models/pathology/upComingProgram.model');
 const ApiError = require('../../utils/ApiError');
 const { handlePagination } = require('../../utils/helper');
+const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../../utils/fileUpload');
 
 const createUpcomingProgram = {
     validation: {
@@ -19,16 +19,14 @@ const createUpcomingProgram = {
     },
     handler: async (req, res) => {
         try {
-            // Create blog document
-            const baseUrl = req.protocol + "://" + req.get("host");
-            const imageUrl = req.file?.filename
-                ? `${baseUrl}/uploads/${req.file.filename}`
-                : "";
+            let imageUrl = '';
+            if (req.file) {
+                imageUrl = await uploadToExternalService(req.file, 'upcoming-programs');
+            }
 
-            // Create blog document
             const course = await UpCommingProgram.create({
                 ...req.body,
-                image: imageUrl, // store as 'image' in DB
+                image: imageUrl,
             });
 
             return res.status(201).json({
@@ -124,10 +122,14 @@ const updateUpComingProgram = {
         }
 
         let imageUrl = courseExist.image;
-        if (req.file?.filename) {
-            const baseUrl = req.protocol + "://" + req.get("host");
-            imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        if (req.file) {
+            if (courseExist.image) {
+                imageUrl = await updateFileOnExternalService(courseExist.image, req.file);
+            } else {
+                imageUrl = await uploadToExternalService(req.file, 'upcoming-programs');
+            }
         }
+
         const updateData = {
             ...req.body,
             image: imageUrl,
@@ -151,6 +153,10 @@ const deleteUpComingProgram = {
 
         if (!upComingRecordExist) {
             throw new ApiError(httpStatus.BAD_REQUEST, 'UpCommingProgram not exist');
+        }
+
+        if (upComingRecordExist.image) {
+            await deleteFileFromExternalService(upComingRecordExist.image);
         }
 
         await UpCommingProgram.findByIdAndDelete(_id);

@@ -3,6 +3,7 @@ const ApiError = require('../utils/ApiError');
 const Joi = require('joi');
 const { Blogs } = require('../models');
 const { handlePagination } = require('../utils/helper');
+const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../utils/fileUpload');
 
 const createBlogs = {
     validation: {
@@ -20,23 +21,20 @@ const createBlogs = {
         try {
             const { exam_name } = req.body;
 
-            // Check if blog exists
             const blogsExist = await Blogs.findOne({ exam_name });
 
             if (blogsExist) {
                 return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog already exists' });
             }
 
-            // Build image URL if file uploaded
-            const baseUrl = req.protocol + "://" + req.get("host");
-            const imageUrl = req.file?.filename
-                ? `${baseUrl}/uploads/${req.file.filename}`
-                : "";
+            let imageUrl = '';
+            if (req.file) {
+                imageUrl = await uploadToExternalService(req.file, 'blogs');
+            }
 
-            // Create blog document
             const blogs = await Blogs.create({
                 ...req.body,
-                image: imageUrl, // store as 'image' in DB
+                image: imageUrl,
             });
 
             return res.status(201).json({
@@ -117,10 +115,14 @@ const updateBlogs = {
         }
 
         let imageUrl = blogsExist.image;
-        if (req.file?.filename) {
-            const baseUrl = req.protocol + "://" + req.get("host");
-            imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        if (req.file) {
+            if (blogsExist.image) {
+                imageUrl = await updateFileOnExternalService(blogsExist.image, req.file);
+            } else {
+                imageUrl = await uploadToExternalService(req.file, 'blogs');
+            }
         }
+
         const updateData = {
             ...req.body,
             image: imageUrl,
@@ -145,6 +147,10 @@ const deleteBlogs = {
 
         if (!blogsExist) {
             throw new ApiError(httpStatus.BAD_REQUEST, 'Blogs not exist');
+        }
+
+        if (blogsExist.image) {
+            await deleteFileFromExternalService(blogsExist.image);
         }
 
         await Blogs.findByIdAndDelete(_id);
