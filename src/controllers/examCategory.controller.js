@@ -6,6 +6,7 @@ const { handlePagination } = require("../utils/helper");
 const { ObjectId } = require("mongoose").Types;
 const axios = require("axios");
 const { getLiveRates } = require("../utils/exchangeRates.js");
+const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require("../utils/fileUpload");
 
 // async function getLiveRates() {
 //   try {
@@ -134,12 +135,11 @@ const createExamCategory = {
         }
       }
 
-      const baseUrl = req.protocol + "://" + req.get("host");
       let updatedExams = exams;
       let enrollImageUrl = "";
 
       if (req.files && req.files.image && req.files.image[0]) {
-        const examImageUrl = `${baseUrl}/uploads/${req.files.image[0].filename}`;
+        const examImageUrl = await uploadToExternalService(req.files.image[0], 'exam-category');
         if (Array.isArray(exams) && exams.length > 0) {
           updatedExams = exams.map((exam) => ({
             ...exam,
@@ -148,10 +148,10 @@ const createExamCategory = {
         }
       }
 
-      // ✅ Handle "who_can_enroll_image"
       if (req.files && req.files.who_can_enroll_image && req.files.who_can_enroll_image[0]) {
-        enrollImageUrl = `${baseUrl}/uploads/${req.files.who_can_enroll_image[0].filename}`;
+        enrollImageUrl = await uploadToExternalService(req.files.who_can_enroll_image[0], 'exam-category');
       }
+
       // Check if category already exists
       const existingCategory = await ExamCategory.findOne({ category_name });
 
@@ -170,6 +170,7 @@ const createExamCategory = {
           });
         }
       }
+
       // Create new category
       const newCategory = await ExamCategory.create({
         category_name,
@@ -183,7 +184,6 @@ const createExamCategory = {
 
       return res.status(201).json({
         message: "Exam category created successfully",
-        // data: newCategory,
       });
     } catch (err) {
       console.error("Error creating category:", err);
@@ -439,11 +439,6 @@ const updateExamCategory = {
         }
       }
 
-      const baseUrl = req.protocol + "://" + req.get("host");
-      // if (req.file && Array.isArray(exams) && exams.length > 0) {
-      //   exams[0].image = req.file.filename ? `${baseUrl}/uploads/${req.file.filename}` : "";
-      // }
-
       // Update category fields dynamically
       if (category_name) existingCategory.category_name = category_name;
       if (Array.isArray(exams)) {
@@ -461,9 +456,13 @@ const updateExamCategory = {
             existingExam.sub_titles = exam.sub_titles || existingExam.sub_titles;
             existingExam.description = exam.description || existingExam.description;
             existingExam.status = exam.status || existingExam.status;
-            // existingExam.image = exam.image || existingExam.image;
+
             if (req.files && req.files.image && req.files.image[0]) {
-              existingExam.image = `${baseUrl}/uploads/${req.files.image[0].filename}`;
+              if (existingExam.image) {
+                existingExam.image = await updateFileOnExternalService(existingExam.image, req.files.image[0]);
+              } else {
+                existingExam.image = await uploadToExternalService(req.files.image[0], 'exam-category');
+              }
             } else if (exam.image) {
               existingExam.image = exam.image;
             }
@@ -542,9 +541,13 @@ const updateExamCategory = {
 
       if (who_can_enroll_title) existingCategory.who_can_enroll_title = who_can_enroll_title;
       if (who_can_enroll_description) existingCategory.who_can_enroll_description = who_can_enroll_description;
-      // ✅ properly handle uploaded image
+
       if (req.files && req.files.who_can_enroll_image && req.files.who_can_enroll_image[0]) {
-        existingCategory.who_can_enroll_image = `${baseUrl}/uploads/${req.files.who_can_enroll_image[0].filename}`;
+        if (existingCategory.who_can_enroll_image) {
+          existingCategory.who_can_enroll_image = await updateFileOnExternalService(existingCategory.who_can_enroll_image, req.files.who_can_enroll_image[0]);
+        } else {
+          existingCategory.who_can_enroll_image = await uploadToExternalService(req.files.who_can_enroll_image[0], 'exam-category');
+        }
       } else if (who_can_enroll_image) {
         existingCategory.who_can_enroll_image = who_can_enroll_image;
       }
@@ -571,6 +574,18 @@ const deleteExamCategory = {
       if (!category)
         throw new ApiError(httpStatus.BAD_REQUEST, 'Category not exist');
 
+      // Delete associated images
+      if (category.exams && category.exams.length > 0) {
+        for (const exam of category.exams) {
+          if (exam.image) {
+            await deleteFileFromExternalService(exam.image);
+          }
+        }
+      }
+
+      if (category.who_can_enroll_image) {
+        await deleteFileFromExternalService(category.who_can_enroll_image);
+      }
 
       await ExamCategory.findByIdAndDelete(_id);
       res.status(httpStatus.OK).json({ message: "Category deleted successfully" });
