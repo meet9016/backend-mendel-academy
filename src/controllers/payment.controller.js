@@ -25,6 +25,7 @@ const {
   sendEnrollmentConfirmationEmailForPreRecord,
   sendWelcomeAccountEmail,
   sendPurchaseConfirmationEmail,
+  sendCombinedPurchaseEmail,
 } = require("../services/email.service");
 const { createZoomMeeting } = require("../services/zoom.service");
 
@@ -287,6 +288,7 @@ const verifyPayment = {
       }
       
       // ✅ Send enrollment emails for ALL cart items
+      const purchasedItems = [];
       for (let i = 0; i < cartItems.length; i++) {
         const cartItem = cartItems[i];
         console.log(`\n📧 [RAZORPAY] Processing cart item ${i + 1}/${cartItems.length}:`, {
@@ -298,81 +300,74 @@ const verifyPayment = {
         });
         
         if (cartItem.cart_type === 'livecourses' && cartItem.livecourse_id) {
-          console.log(`🎓 [RAZORPAY] Sending LiveCourse enrollment email...`);
           const course = await LiveCourses.findById(cartItem.livecourse_id).catch(() => null);
           if (course) {
-            await sendEnrollmentConfirmationEmail(
-              payment.email,
-              payment.full_name,
-              `${course.course_title} - ${cartItem.livecourse_details?.title || 'Module'}`,
-              course.zoom_link,
-              razorpay_order_id,
-            );
-            console.log(`✅ [RAZORPAY] LiveCourse email sent: ${course.course_title}`);
+            purchasedItems.push({
+              productName: course.course_title,
+              productType: "Live Course",
+              details: cartItem.livecourse_details?.title || 'Module',
+              link: course.zoom_link
+            });
+            console.log(`📝 [RAZORPAY] Added LiveCourse to combined email: ${course.course_title}`);
           }
         } else if (cartItem.cart_type === 'hyperspecialist' && cartItem.hyperspecialist_id) {
-          console.log(`🎯 [RAZORPAY] Sending HyperSpecialist enrollment email...`);
           const hyperSpecialist = await HyperSpecialist.findById(cartItem.hyperspecialist_id).catch(() => null);
           if (hyperSpecialist) {
             const zoomMeeting = await createZoomMeeting(`Welcome ${payment.full_name}`);
-            await sendEnrollmentConfirmationEmailforCreateLink(
-              payment.email,
-              payment.full_name,
-              hyperSpecialist.title,
-              zoomMeeting,
-              razorpay_order_id,
-            );
-            console.log(`✅ [RAZORPAY] HyperSpecialist email sent: ${hyperSpecialist.title}`);
+            purchasedItems.push({
+              productName: hyperSpecialist.title,
+              productType: "Hyper Specialist",
+              details: "Zoom Meeting Created",
+              link: zoomMeeting
+            });
+            console.log(`📝 [RAZORPAY] Added HyperSpecialist to combined email: ${hyperSpecialist.title}`);
           }
         } else if (cartItem.cart_type === 'prerecord' && cartItem.product_id) {
-          console.log(`📹 [RAZORPAY] Sending PreRecord enrollment email...`);
           const preRecord = await PreRecord.findById(cartItem.product_id).catch(() => null);
           if (preRecord) {
-            await sendEnrollmentConfirmationEmailForPreRecord(
-              payment.email,
-              payment.full_name,
-              preRecord.title,
-              preRecord.vimeo_video_id,
-              razorpay_order_id,
-            );
-            console.log(`✅ [RAZORPAY] PreRecord email sent: ${preRecord.title}`);
+            purchasedItems.push({
+              productName: preRecord.title,
+              productType: "Pre-Recorded Course",
+              details: "Video Access",
+              link: `https://vimeo.com/${preRecord.vimeo_video_id}`
+            });
+            console.log(`📝 [RAZORPAY] Added PreRecord to combined email: ${preRecord.title}`);
           }
         } else if (cartItem.cart_type === 'exam_plan' && cartItem.exam_category_id) {
-          console.log(`📝 [RAZORPAY] Sending ExamPlan purchase email...`);
           const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
           if (examCategory) {
-            await sendPurchaseConfirmationEmail(
-              payment.email,
-              payment.full_name,
-              examCategory.category_name,
-              `${cartItem.plan_details?.plan_type} Plan`,
-              razorpay_order_id,
-            );
-            console.log(`✅ [RAZORPAY] ExamPlan email sent: ${examCategory.category_name}`);
-          } else {
-            console.log(`❌ [RAZORPAY] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Exam Plan",
+              details: `${cartItem.plan_details?.plan_type} Plan`
+            });
+            console.log(`📝 [RAZORPAY] Added ExamPlan to combined email: ${examCategory.category_name}`);
           }
         } else if (cartItem.cart_type === 'rapid_tool' && cartItem.exam_category_id) {
-          console.log(`⚡ [RAZORPAY] Sending RapidTool purchase email...`);
           const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
           if (examCategory) {
             const toolName = cartItem.tool_details?.tool_type || 'Rapid Learning Tool';
-            await sendPurchaseConfirmationEmail(
-              payment.email,
-              payment.full_name,
-              examCategory.category_name,
-              toolName,
-              razorpay_order_id,
-            );
-            console.log(`✅ [RAZORPAY] RapidTool email sent: ${examCategory.category_name} - ${toolName}`);
-          } else {
-            console.log(`❌ [RAZORPAY] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Rapid Learning Tool",
+              details: toolName
+            });
+            console.log(`📝 [RAZORPAY] Added RapidTool to combined email: ${examCategory.category_name} - ${toolName}`);
           }
-        } else {
-          console.log(`⚠️ [RAZORPAY] Unknown cart_type or missing required ID:`, cartItem.cart_type);
         }
       }
-      console.log(`\n✅ [RAZORPAY] All emails processed for order ${razorpay_order_id}\n`);
+
+      if (purchasedItems.length > 0) {
+        await sendCombinedPurchaseEmail(
+          payment.email,
+          payment.full_name,
+          razorpay_order_id,
+          purchasedItems
+        );
+        console.log(`✅ [RAZORPAY] Combined purchase email sent to ${payment.email} for ${purchasedItems.length} items`);
+      }
+      
+      console.log(`\n✅ [RAZORPAY] All processing completed for order ${razorpay_order_id}\n`);
       return res.json({
         success: true,
         message: "Payment verified & cart updated",
@@ -537,6 +532,7 @@ const verifyPaymentStripe = {
       }
       
       // ✅ Send enrollment emails for ALL cart items
+      const purchasedItems = [];
       for (let i = 0; i < cartItems.length; i++) {
         const cartItem = cartItems[i];
         console.log(`\n📧 [STRIPE] Processing cart item ${i + 1}/${cartItems.length}:`, {
@@ -548,81 +544,74 @@ const verifyPaymentStripe = {
         });
         
         if (cartItem.cart_type === 'livecourses' && cartItem.livecourse_id) {
-          console.log(`🎓 [STRIPE] Sending LiveCourse enrollment email...`);
           const course = await LiveCourses.findById(cartItem.livecourse_id).catch(() => null);
           if (course) {
-            await sendEnrollmentConfirmationEmail(
-              email,
-              full_name,
-              `${course.course_title} - ${cartItem.livecourse_details?.title || 'Module'}`,
-              course.zoom_link,
-              paymentIntentId,
-            );
-            console.log(`✅ [STRIPE] LiveCourse email sent: ${course.course_title}`);
+            purchasedItems.push({
+              productName: course.course_title,
+              productType: "Live Course",
+              details: cartItem.livecourse_details?.title || 'Module',
+              link: course.zoom_link
+            });
+            console.log(`📝 [STRIPE] Added LiveCourse to combined email: ${course.course_title}`);
           }
         } else if (cartItem.cart_type === 'hyperspecialist' && cartItem.hyperspecialist_id) {
-          console.log(`🎯 [STRIPE] Sending HyperSpecialist enrollment email...`);
           const hyperSpecialist = await HyperSpecialist.findById(cartItem.hyperspecialist_id).catch(() => null);
           if (hyperSpecialist) {
             const zoomMeeting = await createZoomMeeting(`Welcome ${full_name}`);
-            await sendEnrollmentConfirmationEmailforCreateLink(
-              email,
-              full_name,
-              hyperSpecialist.title,
-              zoomMeeting,
-              paymentIntentId,
-            );
-            console.log(`✅ [STRIPE] HyperSpecialist email sent: ${hyperSpecialist.title}`);
+            purchasedItems.push({
+              productName: hyperSpecialist.title,
+              productType: "Hyper Specialist",
+              details: "Zoom Meeting Created",
+              link: zoomMeeting
+            });
+            console.log(`📝 [STRIPE] Added HyperSpecialist to combined email: ${hyperSpecialist.title}`);
           }
         } else if (cartItem.cart_type === 'prerecord' && cartItem.product_id) {
-          console.log(`📹 [STRIPE] Sending PreRecord enrollment email...`);
           const preRecord = await PreRecord.findById(cartItem.product_id).catch(() => null);
           if (preRecord) {
-            await sendEnrollmentConfirmationEmailForPreRecord(
-              email,
-              full_name,
-              preRecord.title,
-              preRecord.vimeo_video_id,
-              paymentIntentId,
-            );
-            console.log(`✅ [STRIPE] PreRecord email sent: ${preRecord.title}`);
+            purchasedItems.push({
+              productName: preRecord.title,
+              productType: "Pre-Recorded Course",
+              details: "Video Access",
+              link: `https://vimeo.com/${preRecord.vimeo_video_id}`
+            });
+            console.log(`📝 [STRIPE] Added PreRecord to combined email: ${preRecord.title}`);
           }
         } else if (cartItem.cart_type === 'exam_plan' && cartItem.exam_category_id) {
-          console.log(`📝 [STRIPE] Sending ExamPlan purchase email...`);
           const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
           if (examCategory) {
-            await sendPurchaseConfirmationEmail(
-              email,
-              full_name,
-              examCategory.category_name,
-              `${cartItem.plan_details?.plan_type} Plan`,
-              paymentIntentId,
-            );
-            console.log(`✅ [STRIPE] ExamPlan email sent: ${examCategory.category_name}`);
-          } else {
-            console.log(`❌ [STRIPE] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Exam Plan",
+              details: `${cartItem.plan_details?.plan_type} Plan`
+            });
+            console.log(`📝 [STRIPE] Added ExamPlan to combined email: ${examCategory.category_name}`);
           }
         } else if (cartItem.cart_type === 'rapid_tool' && cartItem.exam_category_id) {
-          console.log(`⚡ [STRIPE] Sending RapidTool purchase email...`);
           const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
           if (examCategory) {
             const toolName = cartItem.tool_details?.tool_type || 'Rapid Learning Tool';
-            await sendPurchaseConfirmationEmail(
-              email,
-              full_name,
-              examCategory.category_name,
-              toolName,
-              paymentIntentId,
-            );
-            console.log(`✅ [STRIPE] RapidTool email sent: ${examCategory.category_name} - ${toolName}`);
-          } else {
-            console.log(`❌ [STRIPE] ExamCategory not found for ID: ${cartItem.exam_category_id}`);
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Rapid Learning Tool",
+              details: toolName
+            });
+            console.log(`📝 [STRIPE] Added RapidTool to combined email: ${examCategory.category_name} - ${toolName}`);
           }
-        } else {
-          console.log(`⚠️ [STRIPE] Unknown cart_type or missing required ID:`, cartItem.cart_type);
         }
       }
-      console.log(`\n✅ [STRIPE] All emails processed for payment ${paymentIntentId}\n`);
+
+      if (purchasedItems.length > 0) {
+        await sendCombinedPurchaseEmail(
+          email,
+          full_name,
+          paymentIntentId,
+          purchasedItems
+        );
+        console.log(`✅ [STRIPE] Combined purchase email sent to ${email} for ${purchasedItems.length} items`);
+      }
+      
+      console.log(`\n✅ [STRIPE] All processing completed for payment ${paymentIntentId}\n`);
       
       return res.json({
         success: true,

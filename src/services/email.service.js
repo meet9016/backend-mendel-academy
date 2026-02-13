@@ -886,6 +886,84 @@ const sendEnrollmentConfirmationEmailForPreRecord = async (
   await transporter.sendMail(mailOptions);
 };
 
+const sendCombinedPurchaseEmail = async (to, name, orderId, items) => {
+  const subject = `Purchase Confirmation - Order #${orderId} 🎉`;
+
+  const itemsHtml = items
+    .map(
+      (item) => `
+    <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 8px;">
+      <p style="margin: 0; font-weight: bold; color: #232323; font-size: 16px;">${item.productName}</p>
+      <p style="margin: 5px 0 0; font-size: 14px; color: #666;"><strong>Type:</strong> ${item.productType}</p>
+      ${item.details ? `<p style="margin: 5px 0 0; font-size: 14px; color: #666;">${item.details}</p>` : ""}
+      ${
+        item.link
+          ? `<p style="margin: 10px 0 0;"><a href="${item.link}" style="display: inline-block; background: #007bff; color: #fff; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 14px;">Access Link →</a></p>`
+          : ""
+      }
+    </div>
+  `,
+    )
+    .join("");
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="max-width:620px; margin:20px auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <tr>
+      <td style="background:#232323; text-align:center; padding:35px 20px;">
+        <img src="https://mendelacademy.com/_next/image?url=%2Fblog-images%2FTop%206%20Best%20USMLE%20Coaching%20Centers%20in%20India.jpg&w=3840&q=80" 
+             alt="Mendel Academy" 
+             style="max-width:180px; height:auto; margin-bottom:15px; border-radius:8px;" />
+        <h1 style="color:#F1C232; margin:10px 0 0; font-size:28px; font-weight:bold;">
+          Purchase Confirmed! 🎉
+        </h1>
+        <p style="color:#fff; margin:10px 0 0; font-size:16px;">Order ID: <strong>${orderId}</strong></p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding:35px 30px; color:#333; font-size:15px; line-height:1.7;">
+        <h2 style="margin:0 0 20px; color:#232323;">Hi ${name}, 🎓</h2>
+        
+        <p>Thank you for your purchase at <strong>Mendel Academy</strong>! We've successfully processed your enrollment for the following items:</p>
+        
+        <div style="margin-top: 30px;">
+          ${itemsHtml}
+        </div>
+
+        <p style="margin:30px 0 10px;">
+          You can now access your content from your dashboard. If you have any questions, feel free to reply to this email.
+        </p>
+
+        <p style="margin-top:35px;">
+          Best wishes for your success,<br>
+          <strong>The Mendel Academy Team</strong>
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#232323; padding:20px; text-align:center; color:#F1C232; font-size:13px;">
+        © ${new Date().getFullYear()} Mendel Academy. All rights reserved.<br>
+        <a href="https://mendelacademy.com/" style="color:#F1C232; text-decoration:underline;">mendelacademy.com</a>
+      </td>
+    </tr>
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 module.exports = {
   sendWelcomeEmail,
   transport,
@@ -898,4 +976,5 @@ module.exports = {
   sendEnrollmentConfirmationEmailForPreRecord,
   sendWelcomeAccountEmail,
   sendPurchaseConfirmationEmail,
+  sendCombinedPurchaseEmail,
 };

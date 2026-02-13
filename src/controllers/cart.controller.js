@@ -205,25 +205,28 @@ const addExamPlanToCart = {
                 displayCurrency
             );
 
-            const query = {
-                exam_category_id,
-                plan_id,
+            // ✅ REPLACE LOGIC: Check if ANY exam_plan already exists for this user
+            const existingPlanQuery = {
+                ...(user_id ? { user_id } : { temp_id }),
                 cart_type: 'exam_plan',
                 bucket_type: true
             };
 
-            if (user_id) {
-                query.user_id = user_id;
-                query.temp_id = null;
-            } else if (temp_id) {
-                query.temp_id = temp_id;
-                query.user_id = null;
-            } else {
-                return res.status(400).send({
-                    success: false,
-                    message: "Either temp_id or user_id is required",
-                });
+            // If a DIFFERENT plan exists, delete it first (since only one plan allowed)
+            const otherPlan = await Cart.findOne({
+                ...existingPlanQuery,
+                plan_id: { $ne: plan_id }
+            });
+
+            if (otherPlan) {
+                console.log(`Replacing plan ${otherPlan.plan_id} with ${plan_id}`);
+                await Cart.deleteOne({ _id: otherPlan._id });
             }
+
+            const query = {
+                ...existingPlanQuery,
+                plan_id
+            };
 
             let cartItem = await Cart.findOne(query);
             let alreadyExists = false;

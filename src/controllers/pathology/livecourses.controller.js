@@ -1,7 +1,7 @@
 const httpStatus = require('http-status');
 const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
-const { LiveCourses } = require('../../models');
+const { LiveCourses, PreRecord } = require('../../models');
 const { handlePagination, sortAndFormat } = require('../../utils/helper');
 const axios = require('axios');
 
@@ -431,11 +431,131 @@ const deleteLiveCourses = {
     }
 }
 
+// const convertLiveToPreRecord = {
+//     handler: async (req, res) => {
+//         try {
+//             const { _id } = req.params;
+
+//             const liveCourse = await LiveCourses.findById(_id);
+//             if (!liveCourse) {
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: "Live course not found"
+//                 });
+//             }
+
+//             // Map LiveCourse to PreRecord
+//             const options = liveCourse.choose_plan_list.map(plan => ({
+//                 type: 'video', // Defaulting to video for converted courses
+//                 description: plan.title || "Converted Module",
+//                 price_usd: plan.price_usd,
+//                 price_inr: plan.price_inr,
+//                 features: plan.features || ["Access to converted course"],
+//                 is_available: true
+//             }));
+
+//             // Calculate minimum prices for the top-level required fields
+//             const minPriceUSD = Math.min(...options.map(opt => opt.price_usd));
+//             const minPriceINR = Math.min(...options.map(opt => opt.price_inr));
+
+//             const preRecordData = {
+//                 title: liveCourse.course_title,
+//                 subtitle: liveCourse.instructor?.name || liveCourse.instructor_name || "",
+//                 description: liveCourse.course_title, // Placeholder, admin can update
+//                 duration: liveCourse.duration || "0",
+//                 date: liveCourse.date || new Date(),
+//                 vimeo_video_id: "", // Placeholder as required
+//                 status: 'Active',
+//                 price_usd: minPriceUSD,
+//                 price_inr: minPriceINR,
+//                 options: options
+//             };
+
+//             const preRecord = await PreRecord.create(preRecordData);
+
+//             res.status(201).json({
+//                 success: true,
+//                 message: "Converted to pre-recorded course successfully!",
+//                 data: preRecord
+//             });
+//         } catch (error) {
+//             console.error("❌ Conversion error:", error);
+//             res.status(500).json({
+//                 success: false,
+//                 message: "Failed to convert course",
+//                 error: error.message
+//             });
+//         }
+//     }
+// };
+const convertLiveToPreRecord = {
+    handler: async (req, res) => {
+        try {
+            const { _id } = req.params;
+
+            const liveCourse = await LiveCourses.findById(_id);
+            if (!liveCourse) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Live course not found"
+                });
+            }
+
+            // Map LiveCourse to PreRecord
+            const options = liveCourse.choose_plan_list.map(plan => ({
+                type: 'video', // Defaulting to video for converted courses
+                description: plan.title || "Converted Module",
+                price_usd: plan.price_usd,
+                price_inr: plan.price_inr,
+                features: plan.features || ["Access to converted course"],
+                is_available: true
+            }));
+
+            // Calculate minimum prices for the top-level required fields
+            const minPriceUSD = Math.min(...options.map(opt => opt.price_usd));
+            const minPriceINR = Math.min(...options.map(opt => opt.price_inr));
+
+            const preRecordData = {
+                title: liveCourse.course_title,
+                subtitle: liveCourse.instructor?.name || liveCourse.instructor_name || "",
+                description: liveCourse.course_title, // Placeholder, admin can update
+                duration: liveCourse.duration || "0",
+                date: liveCourse.date || new Date(),
+                vimeo_video_id: "www.vimeo.com", // Placeholder as required
+                status: 'Active',
+                price_usd: minPriceUSD,
+                price_inr: minPriceINR,
+                options: options
+            };
+
+            // Create the pre-recorded course
+            const preRecord = await PreRecord.create(preRecordData);
+            
+            // Delete the original live course
+            await LiveCourses.findByIdAndDelete(_id);
+            
+            res.status(201).json({
+                success: true,
+                message: "Converted to pre-recorded course successfully! Live course has been removed.",
+                data: preRecord
+            });
+            
+        } catch (error) {
+            console.error("❌ Conversion error:", error);
+            res.status(500).json({
+                success: false,
+                message: "Failed to convert course",
+                error: error.message
+            });
+        }
+    }
+};
 module.exports = {
     createLiveCourses,
     getAllCourses,
     getAllLiveCourses,
     getLiveCoursesById,
     updateLiveCourses,
-    deleteLiveCourses
+    deleteLiveCourses,
+    convertLiveToPreRecord
 };

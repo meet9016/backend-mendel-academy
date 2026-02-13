@@ -12,6 +12,7 @@ router.get('/getall', catchAsync(liveCoursesController.getAllCourses.handler));
 router.get('/getLiveData', catchAsync(liveCoursesController.getAllLiveCourses.handler));
 router.get('/getById/:_id', catchAsync(liveCoursesController.getLiveCoursesById.handler));
 router.put('/update/:_id', validate(liveCoursesController.updateLiveCourses.validation), catchAsync(liveCoursesController.updateLiveCourses.handler));
+router.post('/convert-to-prerecord/:_id', catchAsync(liveCoursesController.convertLiveToPreRecord.handler));
 router.delete('/delete/:_id', catchAsync(liveCoursesController.deleteLiveCourses.handler));
 
 module.exports = router;
