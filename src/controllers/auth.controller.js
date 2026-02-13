@@ -163,13 +163,41 @@ const getUserProfile = {
       }
 
       // Cart items all
-      const cartItems = await Cart.find({ user_id: userId });
+      const cartItems = await Cart.find({ user_id: userId })
+        .populate("product_id")
+        .populate("exam_category_id")
+        .populate("hyperspecialist_id")
+        .populate("livecourse_id");
 
       // bucket_type = true (Cart items)
       const addToCartItem = cartItems.filter(item => item.bucket_type === true);
 
-      // bucket_type = false (Purchased items)
-      const payBill = cartItems.filter(item => item.bucket_type === false);
+      // bucket_type = false (Purchased items) - Ensure unique items
+      const payBill = [];
+      const seenItems = new Set();
+
+      cartItems.filter(item => item.bucket_type === false).forEach(item => {
+        let identifier = "";
+        if (item.cart_type === 'prerecord') identifier = `prerecord_${item.product_id?._id || item.product_id}`;
+        else if (item.cart_type === 'exam_plan') identifier = `exam_${item.exam_category_id?._id || item.exam_category_id}_${item.plan_id}`;
+        else if (item.cart_type === 'hyperspecialist') identifier = `hyper_${item.hyperspecialist_id?._id || item.hyperspecialist_id}`;
+        else if (item.cart_type === 'livecourses') identifier = `live_${item.livecourse_id?._id || item.livecourse_id}_${item.livecourse_module_id}`;
+        else if (item.cart_type === 'rapid_tool') identifier = `rapid_${item.exam_category_id?._id || item.exam_category_id}_${item.tool_id}`;
+        
+        // Use createdAt as a secondary identifier to distinguish between multiple purchases of the same item if they happened at different times
+        // But the user wants to see only one if they purchased only one. 
+        // If there are duplicates with the same identifier, we only take the first one.
+        if (identifier && !seenItems.has(identifier)) {
+          seenItems.add(identifier);
+          payBill.push(item);
+        } else if (!identifier) {
+          // Fallback for any unknown types
+          payBill.push(item);
+        }
+      });
+
+      // Sort payBill by createdAt descending to show newest first
+      payBill.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       // Payment items
       const paymentItems = await Payment.find({ user_id: userId }).sort({ createdAt: -1 });

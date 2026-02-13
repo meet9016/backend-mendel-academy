@@ -240,7 +240,7 @@ const verifyPayment = {
       
       // ✅ Update cart items to mark as purchased
       await Cart.updateMany(matchQuery, {
-        $set: { bucket_type: false },
+        $set: { bucket_type: false, updatedAt: new Date() },
       });
       console.log(`\n🛒 [RAZORPAY] Found ${cartItems.length} cart items for order ${razorpay_order_id}`);
       
@@ -249,7 +249,7 @@ const verifyPayment = {
       if (!usersDetails) {
         let password = generatePassword(8, { lowercase: true, uppercase: true, numbers: true, symbols: false });
         console.log(`👤 [RAZORPAY] Creating new user account for ${payment.email}`);
-        let user = await User.create({
+        usersDetails = await User.create({
           email: payment.email,
           password: password,
           phone: payment.phone,
@@ -257,12 +257,33 @@ const verifyPayment = {
           last_name: payment.full_name,
         });
         await sendWelcomeAccountEmail(
-          user.email,
-          user.first_name,
-          user.email,
+          usersDetails.email,
+          usersDetails.first_name,
+          usersDetails.email,
           password,
         );
         console.log(`✅ [RAZORPAY] Welcome email sent to ${payment.email}`);
+
+        // ✅ Update payment and cart records with the new user_id
+        await Payment.updateOne({ _id: payment._id }, { user_id: usersDetails._id, guest_id: null });
+        
+        // Use a broader query to link ALL items from this guest/user to the new ID
+        const linkQuery = typeof user_id === "string" && user_id.startsWith("guest_") 
+          ? { temp_id: user_id } 
+          : { user_id: user_id };
+          
+        await Cart.updateMany(linkQuery, { user_id: usersDetails._id, temp_id: null });
+        console.log(`🔗 [RAZORPAY] Linked payment and cart items to new user ID: ${usersDetails._id}`);
+      } else if (!payment.user_id) {
+        // If user already exists but payment wasn't linked (e.g., guest purchase by existing user)
+        await Payment.updateOne({ _id: payment._id }, { user_id: usersDetails._id, guest_id: null });
+        
+        const linkQuery = typeof user_id === "string" && user_id.startsWith("guest_") 
+          ? { temp_id: user_id } 
+          : { user_id: user_id };
+
+        await Cart.updateMany(linkQuery, { user_id: usersDetails._id, temp_id: null });
+        console.log(`🔗 [RAZORPAY] Linked guest payment and cart items to existing user ID: ${usersDetails._id}`);
       }
       
       // ✅ Send enrollment emails for ALL cart items
@@ -472,7 +493,7 @@ const verifyPaymentStripe = {
 
       // ✅ UPDATE CART - mark as purchased
       const cartUpdate = await Cart.updateMany(cartQuery, {
-        $set: { bucket_type: false },
+        $set: { bucket_type: false, updatedAt: new Date() },
       });
 
       console.log(`🛒 [STRIPE] Cart updated: ${cartUpdate.modifiedCount} items marked as purchased`);
@@ -482,7 +503,7 @@ const verifyPaymentStripe = {
       if (!usersDetails) {
         let password = generatePassword(8, { lowercase: true, uppercase: true, numbers: true, symbols: false });
         console.log(`👤 [STRIPE] Creating new user account for ${email}`);
-        let user = await User.create({
+        usersDetails = await User.create({
           email: email,
           password: password,
           phone: phone,
@@ -490,12 +511,29 @@ const verifyPaymentStripe = {
           last_name: full_name,
         });
         await sendWelcomeAccountEmail(
-          user.email,
-          user.first_name,
-          user.email,
+          usersDetails.email,
+          usersDetails.first_name,
+          usersDetails.email,
           password,
         );
         console.log(`✅ [STRIPE] Welcome email sent to ${email}`);
+
+        // ✅ Update payment and cart records with the new user_id
+        await Payment.updateOne({ _id: payment._id }, { user_id: usersDetails._id });
+        
+        // Use a broader query to link ALL items from this guest/user to the new ID
+        const linkQuery = user_id ? { user_id } : { temp_id };
+        
+        await Cart.updateMany(linkQuery, { user_id: usersDetails._id, temp_id: null });
+        console.log(`🔗 [STRIPE] Linked payment and cart items to new user ID: ${usersDetails._id}`);
+      } else if (!payment.user_id) {
+        // If user already exists but payment wasn't linked (e.g., guest purchase by existing user)
+        await Payment.updateOne({ _id: payment._id }, { user_id: usersDetails._id });
+        
+        const linkQuery = user_id ? { user_id } : { temp_id };
+
+        await Cart.updateMany(linkQuery, { user_id: usersDetails._id, temp_id: null });
+        console.log(`🔗 [STRIPE] Linked guest payment and cart items to existing user ID: ${usersDetails._id}`);
       }
       
       // ✅ Send enrollment emails for ALL cart items
