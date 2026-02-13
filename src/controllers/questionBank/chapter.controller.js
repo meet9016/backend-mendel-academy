@@ -1,7 +1,7 @@
 const httpStatus = require('http-status');
 const ApiError = require('../../utils/ApiError');
 const catchAsync = require('../../utils/catchAsync');
-const { Chapter, Subject } = require('../../models');
+const { Chapter, Subject, Topic, AcademicQuestion } = require('../../models');
 const pick = require('../../utils/pick');
 
 const createChapter = {
@@ -70,6 +70,10 @@ const deleteChapter = {
     if (!chapter) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Chapter not found');
     }
+    const topics = await Topic.find({ chapter: req.params.chapterId });
+    const topicIds = topics.map((topic) => topic._id);
+    await AcademicQuestion.deleteMany({ topic: { $in: topicIds } });
+    await Topic.deleteMany({ chapter: req.params.chapterId });
     await chapter.deleteOne();
     res.status(httpStatus.NO_CONTENT).send();
   }),
