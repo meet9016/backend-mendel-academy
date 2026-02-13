@@ -14,6 +14,12 @@ const examListSchema = mongoose.Schema(
         required: true,
         trim: true,
       },
+      slug: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+      },
       title: {
         type: String,
         trim: true,

@@ -171,7 +171,16 @@ const addExamPlanToCart = {
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
-            const examCategory = await ExamCategory.findById(exam_category_id);
+            let examCategory;
+            let actualCategoryId = exam_category_id;
+            if (exam_category_id.match(/^[0-9a-fA-F]{24}$/)) {
+                examCategory = await ExamCategory.findById(exam_category_id);
+            } else {
+                examCategory = await ExamCategory.findOne({ "exams.slug": exam_category_id });
+                if (examCategory) {
+                    actualCategoryId = examCategory._id;
+                }
+            }
             if (!examCategory) {
                 return res.status(404).send({
                     success: false,
@@ -256,7 +265,7 @@ const addExamPlanToCart = {
                     temp_id: user_id ? null : temp_id,
                     user_id: user_id || null,
                     cart_type: 'exam_plan',
-                    exam_category_id,
+                    exam_category_id: actualCategoryId,
                     plan_id,
                     plan_details: {
                         plan_type: plan.plan_type,
@@ -653,7 +662,16 @@ const addRapidToolToCart = {
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
-            const examCategory = await ExamCategory.findById(exam_category_id);
+            let examCategory;
+            let actualCategoryId = exam_category_id;
+            if (exam_category_id.match(/^[0-9a-fA-F]{24}$/)) {
+                examCategory = await ExamCategory.findById(exam_category_id);
+            } else {
+                examCategory = await ExamCategory.findOne({ "exams.slug": exam_category_id });
+                if (examCategory) {
+                    actualCategoryId = examCategory._id;
+                }
+            }
             if (!examCategory) {
                 return res.status(404).send({
                     success: false,
@@ -678,7 +696,7 @@ const addRapidToolToCart = {
             );
 
             const query = {
-                exam_category_id,
+                exam_category_id: actualCategoryId,
                 tool_id,
                 cart_type: 'rapid_tool',
                 bucket_type: true
@@ -721,7 +739,7 @@ const addRapidToolToCart = {
                     temp_id: user_id ? null : temp_id,
                     user_id: user_id || null,
                     cart_type: 'rapid_tool',
-                    exam_category_id,
+                    exam_category_id: actualCategoryId,
                     tool_id,
                     tool_details: {
                         tool_type: tool.tool_type,

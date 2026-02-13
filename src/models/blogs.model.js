@@ -11,6 +11,11 @@ const blogsSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     sort_description: {
       type: String,
       required: true,

@@ -505,15 +505,15 @@ const convertLiveToPreRecord = {
             const options = liveCourse.choose_plan_list.map(plan => ({
                 type: 'video', // Defaulting to video for converted courses
                 description: plan.title || "Converted Module",
-                price_usd: plan.price_usd,
-                price_inr: plan.price_inr,
+                price_usd: plan.price_usd || 0,
+                price_inr: plan.price_inr || 0,
                 features: plan.features || ["Access to converted course"],
                 is_available: true
             }));
 
             // Calculate minimum prices for the top-level required fields
-            const minPriceUSD = Math.min(...options.map(opt => opt.price_usd));
-            const minPriceINR = Math.min(...options.map(opt => opt.price_inr));
+            const minPriceUSD = options.length > 0 ? Math.min(...options.map(opt => opt.price_usd)) : 0;
+            const minPriceINR = options.length > 0 ? Math.min(...options.map(opt => opt.price_inr)) : 0;
 
             const preRecordData = {
                 title: liveCourse.course_title,

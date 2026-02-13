@@ -87,6 +87,7 @@ const createExamCategory = {
       exams: Joi.array().items(
         Joi.object({
           exam_name: Joi.string().trim().required(),
+          slug: Joi.string().trim().required(),
           title: Joi.string().trim().required(),
           country: Joi.string().allow(""),
           sub_titles: Joi.array().items(Joi.string().trim()).optional(),
@@ -267,11 +268,31 @@ const getExamCategoryById = {
       console.log("💰 User Info:", userInfo); // Debug log
 
       const { _id } = req.params;
-      const category = await ExamCategory.findById(_id);
+      
+      // 🔍 Find by MongoDB ID or Slug (within exams array)
+      let category;
+      if (_id.match(/^[0-9a-fA-F]{24}$/)) {
+        category = await ExamCategory.findById(_id);
+      } else {
+        category = await ExamCategory.findOne({ "exams.slug": _id });
+        
+        // If found by slug, move the matching exam to the front of the array
+        // so frontend can consistently use exams[0]
+        if (category && category.exams) {
+          const matchingExamIndex = category.exams.findIndex(e => e.slug === _id);
+          if (matchingExamIndex > 0) {
+            const [matchingExam] = category.exams.splice(matchingExamIndex, 1);
+            category.exams.unshift(matchingExam);
+          }
+        }
+      }
 
       if (!category)
-        return res.status(404).json({ message: "Category not found" });
+        return res.status(404).json({ message: "Category/Exam not found" });
 
+      // If it was found by slug, we might want to return the specific exam context
+      // but the current frontend seems to expect the whole category document.
+      
       // ✅ Return with user currency info
       res.status(200).json({
         ...category._doc,
@@ -313,6 +334,7 @@ const getAllExamsList = {
             exam_id: category._id,
             _id: exam._id,
             exam_name: exam.exam_name,
+            slug: exam.slug,
             country: exam.country,
             status: exam.status,
           });

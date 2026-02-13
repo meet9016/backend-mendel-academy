@@ -10,6 +10,7 @@ const createBlogs = {
         body: Joi.object().keys({
             exam_name: Joi.string().trim().required(),
             title: Joi.string().trim().required(),
+            slug: Joi.string().trim().required(),
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
@@ -19,12 +20,12 @@ const createBlogs = {
     },
     handler: async (req, res) => {
         try {
-            const { exam_name } = req.body;
+            const { exam_name, slug } = req.body;
 
-            const blogsExist = await Blogs.findOne({ exam_name });
+            const blogsExist = await Blogs.findOne({ $or: [{ exam_name }, { slug }] });
 
             if (blogsExist) {
-                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog already exists' });
+                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this name or slug already exists' });
             }
 
             let imageUrl = '';
@@ -76,8 +77,13 @@ const getBlogById = {
         try {
             const { _id } = req.params;
 
-            // 🔍 Find blog by MongoDB ID
-            const blog = await Blogs.findById(_id);
+            // 🔍 Find blog by MongoDB ID or Slug
+            let blog;
+            if (_id.match(/^[0-9a-fA-F]{24}$/)) {
+                blog = await Blogs.findById(_id);
+            } else {
+                blog = await Blogs.findOne({ slug: _id });
+            }
 
             if (!blog) {
                 return res.status(404).json({ message: "Blog not found" });
@@ -85,7 +91,7 @@ const getBlogById = {
 
             res.status(200).json(blog);
         } catch (error) {
-            console.error("Error fetching blog by ID:", error);
+            console.error("Error fetching blog by ID/Slug:", error);
             res.status(500).json({ message: "Internal Server Error" });
         }
     }
@@ -96,6 +102,7 @@ const updateBlogs = {
         body: Joi.object().keys({
             exam_name: Joi.string().trim().required(),
             title: Joi.string().trim().required(),
+            slug: Joi.string().trim().required(),
             sort_description: Joi.string().trim().required(),
             long_description: Joi.string().trim().required(),
             date: Joi.date().required(),
@@ -114,7 +121,13 @@ const updateBlogs = {
             throw new ApiError(httpStatus.BAD_REQUEST, 'Blogs not exist');
         }
 
-        let imageUrl = blogsExist.image;
+        // Check if slug is being changed and if new slug already exists
+        if (req.body.slug && req.body.slug !== blogsExist.slug) {
+            const slugExist = await Blogs.findOne({ slug: req.body.slug, _id: { $ne: _id } });
+            if (slugExist) {
+                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this slug already exists' });
+            }
+        }
         if (req.file) {
             if (blogsExist.image) {
                 imageUrl = await updateFileOnExternalService(blogsExist.image, req.file);
