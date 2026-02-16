@@ -386,38 +386,51 @@ const verifyPayment = {
 const createStripePaymentIntent = {
   handler: async (req, res) => {
     try {
-      let { amount, country, email, user_id } = req.body;
+      let { amount, country, email, user_id, currency } = req.body;
 
       if (!amount) {
         return res.status(400).json({ error: "Amount is required" });
       }
 
-      // Auto detect country
-      if (!country) {
-        const ip =
-          req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-          req.socket.remoteAddress;
-        country = await getCountryFromIP(ip);
+      let finalCurrency = currency;
+
+      if (!finalCurrency) {
+        if (!country) {
+          const ip =
+            req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+            req.socket.remoteAddress;
+          const countryCode = await getCountryFromIP(ip);
+          if (countryCode === "IN") {
+            finalCurrency = "INR";
+          } else {
+            finalCurrency = "USD";
+          }
+        } else {
+          const upperCountry = String(country).toUpperCase();
+          if (upperCountry === "IN" || upperCountry === "INDIA") {
+            finalCurrency = "INR";
+          } else {
+            finalCurrency = (await getCurrencyFromCountry(country)).toUpperCase();
+          }
+        }
       }
 
-      // Convert country → currency
-      let currency = (await getCurrencyFromCountry(country)).toLowerCase();
+      finalCurrency = (finalCurrency || "USD").toUpperCase();
 
-      let stripeAmount = Math.round(amount * 100);
+      const stripeAmount = Math.round(amount * 100);
 
       try {
         const intent = await stripe.paymentIntents.create({
           amount: stripeAmount,
-          currency,
+          currency: finalCurrency.toLowerCase(),
           receipt_email: email,
           automatic_payment_methods: { enabled: true },
-          // user_id: user_id || null,
         });
 
         return res.json({
           clientSecret: intent.client_secret,
           amount: stripeAmount / 100,
-          currency: currency.toUpperCase(),
+          currency: finalCurrency,
           message: "Payment Intent created",
         });
       } catch (error) {
