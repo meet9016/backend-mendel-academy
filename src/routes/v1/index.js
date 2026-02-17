@@ -12,7 +12,11 @@ const paymentRoute = require('./payment.route');
 const faqRoute = require('./faq.route')
 const contactusRoute = require('./contactUs.route')
 const hyperSpecialistRoute = require('./pathology/hyperSpecialist.route')
-const termsConditionsRoute = require('./termsConditions.route')
+const termsConditionsRoute = require('./termsConditions.route');
+const questionsRoute = require('./questionBank/question.route');
+const chapterRoute = require('./questionBank/chapter.route');
+const topicRoute = require('./questionBank/topic.route');
+const subjectRoute = require('./questionBank/subject.route');
 
 const router = express.Router();
 
@@ -72,6 +76,22 @@ const defaultRoutes = [
   {
     path: '/terms-conditions',
     route: termsConditionsRoute
+  },
+  {
+    path: '/subject',
+    route: subjectRoute
+  },
+  {
+    path: '/questions',
+    route: questionsRoute
+  },
+  {
+    path: '/chapter',
+    route: chapterRoute
+  },
+  {
+    path: '/topic',
+    route: topicRoute
   }
 ];
 

@@ -12,3 +12,7 @@ module.exports.contactUsController = require('./contact.controller');
 module.exports.upCommingProgramController = require('./pathology/upComingProgram.controller');
 module.exports.hyperSpecialistController = require('./pathology/hyperSpecialist.controller');
 module.exports.termsConditionsController = require('./termsConditions.controller');
+module.exports.subjectController = require('./questionBank/subject.controller');
+module.exports.chapterController = require('./questionBank/chapter.controller');
+module.exports.topicController = require('./questionBank/topic.controller');
+module.exports.academicQuestionController = require('./questionBank/question.controller');
