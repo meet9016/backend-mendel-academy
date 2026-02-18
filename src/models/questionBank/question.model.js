@@ -17,6 +17,10 @@ const academicQuestionSchema = mongoose.Schema(
         }
       },
     },
+    optionExplanations: {
+      type: [String],
+      default: [],
+    },
     correctAnswer: {
       type: String,
       required: true,
