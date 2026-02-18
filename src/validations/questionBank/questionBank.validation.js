@@ -146,6 +146,7 @@ const createAcademicQuestion = {
     question: Joi.string().required(),
     correctAnswer: Joi.string().required(),
     description: Joi.string().allow('', null),
+    optionExplanations: Joi.array().items(Joi.string().allow('', null)).optional(),
     topic: Joi.string().required().custom(objectId),
   }),
 };
@@ -182,6 +183,7 @@ const updateAcademicQuestion = {
       options: Joi.array().items(Joi.string()).min(2),
       correctAnswer: Joi.string(),
       description: Joi.string().allow('', null),
+      optionExplanations: Joi.array().items(Joi.string().allow('', null)).optional(),
       topic: Joi.string().custom(objectId),
     })
     .min(1),
