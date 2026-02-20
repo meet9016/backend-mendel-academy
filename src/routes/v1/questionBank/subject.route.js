@@ -13,5 +13,5 @@ router.get("/getall", validate(academicValidation.getSubjects), subjectControlle
 router.get("/get-by-id/:subjectId", validate(academicValidation.getSubject), subjectController.getSubject.handler);
 router.patch("/update/:subjectId", validate(academicValidation.updateSubject), subjectController.updateSubject.handler);
 router.delete("/delete/:subjectId", validate(academicValidation.deleteSubject), subjectController.deleteSubject.handler);
-
+router.get("/getQBankTree", subjectController.getQBankTree.handler);
 module.exports = router;
