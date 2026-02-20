@@ -2,7 +2,8 @@ const express = require('express');
 const validate = require('../../../middlewares/validate');
 const { academicValidation } = require('../../../validations');
 const {
-  subjectController
+  subjectController,
+  academicQuestionController,
 } = require('../../../controllers');
 
 const router = express.Router();
@@ -14,4 +15,12 @@ router.get("/get-by-id/:subjectId", validate(academicValidation.getSubject), sub
 router.patch("/update/:subjectId", validate(academicValidation.updateSubject), subjectController.updateSubject.handler);
 router.delete("/delete/:subjectId", validate(academicValidation.deleteSubject), subjectController.deleteSubject.handler);
 router.get("/getQBankTree", subjectController.getQBankTree.handler);
+
+// Question Bank by topic (used by test-create and admin question-bank)
+router.get(
+  "/getQuestionBankByTopic/:topicId",
+  validate(academicValidation.getQuestionsByTopic),
+  academicQuestionController.getQuestionsByTopic.handler
+);
+
 module.exports = router;

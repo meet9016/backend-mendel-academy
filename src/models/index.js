@@ -15,5 +15,4 @@ module.exports.Subject = require('./questionBank/subject.model');
 module.exports.Chapter = require('./questionBank/chapter.model');
 module.exports.Topic = require('./questionBank/topic.model');
 module.exports.AcademicQuestion = require('./questionBank/question.model');
-// module.exports.Order = require('./order.model');
-// module.exports.ExamCategory = require('./examCategory.model');
+module.exports.TestAttempt = require('./testAttempt.model');
