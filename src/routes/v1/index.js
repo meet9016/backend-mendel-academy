@@ -5,18 +5,19 @@ const questionRoute = require('./question.route');
 const blogsRoute = require('./blogs.route');
 const preRoute = require('./pathology/prerecorded.route');
 const liveRoute = require('./pathology/liveCourses.route');
-const upcommingprogramRoute = require('./pathology/upComingProgram.route')
+const upcommingprogramRoute = require('./pathology/upComingProgram.route');
 const examListRoute = require('./examCategory.route');
 const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
-const faqRoute = require('./faq.route')
-const contactusRoute = require('./contactUs.route')
-const hyperSpecialistRoute = require('./pathology/hyperSpecialist.route')
+const faqRoute = require('./faq.route');
+const contactusRoute = require('./contactUs.route');
+const hyperSpecialistRoute = require('./pathology/hyperSpecialist.route');
 const termsConditionsRoute = require('./termsConditions.route');
 const questionsRoute = require('./questionBank/question.route');
 const chapterRoute = require('./questionBank/chapter.route');
 const topicRoute = require('./questionBank/topic.route');
 const subjectRoute = require('./questionBank/subject.route');
+const testAttemptRoute = require('./testAttempt.route');
 
 const router = express.Router();
 
@@ -92,6 +93,10 @@ const defaultRoutes = [
   {
     path: '/topic',
     route: topicRoute
+  },
+  {
+    path: '/test-attempt',
+    route: testAttemptRoute
   }
 ];
 

@@ -15,4 +15,7 @@ router.get("/get-by-id/:questionId", validate(academicValidation.getAcademicQues
 router.patch("/update/:questionId", validate(academicValidation.updateAcademicQuestion), academicQuestionController.updateAcademicQuestion.handler);
 router.delete("/delete/:questionId", validate(academicValidation.deleteAcademicQuestion), academicQuestionController.deleteAcademicQuestion.handler);
 
+router.get("/stats/subjects", academicQuestionController.getSubjectQuestionStats.handler);
+router.get("/stats/chapters-by-subject/:subjectId", academicQuestionController.getChapterAndTopicStatsBySubject.handler);
+
 module.exports = router;
