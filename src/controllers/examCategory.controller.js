@@ -396,6 +396,7 @@ const updateExamCategory = {
           exam_name: Joi.string().trim().required(),
           title: Joi.string().trim().optional(),
           country: Joi.string().allow(""),
+          slug: Joi.string().trim().required(),
           sub_titles: Joi.array().items(Joi.string().trim()).optional(),
           description: Joi.string().trim().optional(),
           image: Joi.string().optional(),
