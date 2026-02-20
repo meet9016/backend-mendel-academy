@@ -128,6 +128,7 @@ const updateBlogs = {
                 return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this slug already exists' });
             }
         }
+        let imageUrl = '';
         if (req.file) {
             if (blogsExist.image) {
                 imageUrl = await updateFileOnExternalService(blogsExist.image, req.file);
