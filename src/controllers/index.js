@@ -17,3 +17,4 @@ module.exports.chapterController = require('./questionBank/chapter.controller');
 module.exports.topicController = require('./questionBank/topic.controller');
 module.exports.academicQuestionController = require('./questionBank/question.controller');
 module.exports.testAttemptController = require('./testAttempt.controller');
+module.exports.demoQuestionController = require('./demoQuestion.controller');
