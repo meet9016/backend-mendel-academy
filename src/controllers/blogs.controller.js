@@ -4,6 +4,7 @@ const Joi = require('joi');
 const { Blogs } = require('../models');
 const { handlePagination } = require('../utils/helper');
 const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../utils/fileUpload');
+const logger = require('../config/logger');
 
 const createBlogs = {
     validation: {
@@ -72,29 +73,33 @@ const getAllBlogs = {
 
 
 const getBlogById = {
+  handler: async (req, res) => {
+    try {
+      let { _id } = req.params;
 
-    handler: async (req, res) => {
-        try {
-            const { _id } = req.params;
+      _id = encodeURIComponent(_id);
 
-            // 🔍 Find blog by MongoDB ID or Slug
-            let blog;
-            if (_id.match(/^[0-9a-fA-F]{24}$/)) {
-                blog = await Blogs.findById(_id);
-            } else {
-                blog = await Blogs.findOne({ slug: _id });
-            }
+      logger.info(_id, "Processed ID/Slug");
 
-            if (!blog) {
-                return res.status(404).json({ message: "Blog not found" });
-            }
+      let blog;
 
-            res.status(200).json(blog);
-        } catch (error) {
-            console.error("Error fetching blog by ID/Slug:", error);
-            res.status(500).json({ message: "Internal Server Error" });
-        }
+      // 🔍 Check if valid Mongo ObjectId
+      if (_id.match(/^[0-9a-fA-F]{24}$/)) {
+        blog = await Blogs.findById(_id);
+      } else {
+        blog = await Blogs.findOne({ slug: _id });
+      }
+
+      if (!blog) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+
+      return res.status(200).json(blog);
+    } catch (error) {
+      console.error("Error fetching blog by ID/Slug:", error);
+      return res.status(500).json({ message: "Internal Server Error" });
     }
+  }
 };
 
 const updateBlogs = {
@@ -128,6 +133,7 @@ const updateBlogs = {
                 return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this slug already exists' });
             }
         }
+        let imageUrl = '';
         if (req.file) {
             if (blogsExist.image) {
                 imageUrl = await updateFileOnExternalService(blogsExist.image, req.file);
