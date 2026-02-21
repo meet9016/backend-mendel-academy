@@ -18,6 +18,7 @@ const chapterRoute = require('./questionBank/chapter.route');
 const topicRoute = require('./questionBank/topic.route');
 const subjectRoute = require('./questionBank/subject.route');
 const testAttemptRoute = require('./testAttempt.route');
+const demoQuestionRoute = require('./demoQuestion.route');
 
 const router = express.Router();
 
@@ -97,6 +98,10 @@ const defaultRoutes = [
   {
     path: '/test-attempt',
     route: testAttemptRoute
+  },
+  {
+    path: '/demo-question',
+    route: demoQuestionRoute
   }
 ];
 
