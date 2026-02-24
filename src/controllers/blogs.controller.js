@@ -21,9 +21,9 @@ const createBlogs = {
     },
     handler: async (req, res) => {
         try {
-            const { exam_name, slug } = req.body;
+            const { slug } = req.body;
 
-            const blogsExist = await Blogs.findOne({ $or: [{ exam_name }, { slug }] });
+            const blogsExist = await Blogs.findOne({ slug });
 
             if (blogsExist) {
                 return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this name or slug already exists' });
