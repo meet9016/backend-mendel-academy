@@ -26,7 +26,7 @@ const createBlogs = {
             const blogsExist = await Blogs.findOne({ slug });
 
             if (blogsExist) {
-                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog with this name or slug already exists' });
+                return res.status(httpStatus.BAD_REQUEST).json({ message: 'Blog slug already exists' });
             }
 
             let imageUrl = '';
