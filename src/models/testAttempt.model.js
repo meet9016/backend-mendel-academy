@@ -8,13 +8,33 @@ const perQuestionSchema = mongoose.Schema(
       required: true,
       trim: true,
     },
+    selectedOption: {
+      type: String,
+      default: null,
+    },
     isCorrect: {
       type: Boolean,
-      default: false,
+      default: null,
     },
     isAnswered: {
       type: Boolean,
       default: false,
+    },
+    timeSpentSeconds: {
+      type: Number,
+      default: 0,
+    },
+    note: {
+      type: String,
+      default: '',
+    },
+    isMarked: {
+      type: Boolean,
+      default: false,
+    },
+    lastUpdatedAt: {
+      type: Date,
+      default: Date.now,
     },
   },
   { _id: false }

@@ -34,6 +34,12 @@ router.post('/add-rapid-tool',
     catchAsync(cartController.addRapidToolToCart.handler)
 );
 
+// ✅ NEW: Add QBank Plan to cart
+router.post('/add-qbank-plan',
+    validate(cartController.addQbankPlanToCart.validation),
+    catchAsync(cartController.addQbankPlanToCart.handler)
+);
+
 // ✅ Get all cart items (all types)
 router.get('/get', catchAsync(cartController.getCart.handler));
 

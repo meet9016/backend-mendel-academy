@@ -18,7 +18,7 @@ const cartSchema = mongoose.Schema(
         // ✅ Cart type - NOW INCLUDES LIVECOURSES
         cart_type: {
             type: String,
-            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses', 'rapid_tool'],
+            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses', 'rapid_tool', 'qbank_plan'],
             default: 'prerecord',
             required: true,
         },
@@ -103,6 +103,23 @@ const cartSchema = mongoose.Schema(
             tool_type: String,
             price_usd: Number,
             price_inr: Number,
+        },
+
+        // ✅ NEW: For QBank Plans
+        qbank_plan_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Plans",
+            required: function () {
+                return this.cart_type === 'qbank_plan';
+            },
+        },
+        qbank_plan_details: {
+            name: String,
+            price_usd: Number,
+            price_inr: Number,
+            duration: String,
+            duration_months: Number,
+            features: [String],
         },
 
         // Common fields
@@ -255,6 +272,31 @@ cartSchema.index(
         unique: true,
         partialFilterExpression: {
             cart_type: 'rapid_tool',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ For QBank Plans - prevent duplicate plan per user
+cartSchema.index(
+    { cart_type: 1, qbank_plan_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'qbank_plan',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, qbank_plan_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'qbank_plan',
             bucket_type: true,
             temp_id: { $type: 'string' }
         }
