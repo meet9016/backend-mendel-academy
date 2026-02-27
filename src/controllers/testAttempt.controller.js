@@ -311,6 +311,52 @@ const bulkSaveAnswers = {
   },
 };
 
+const deleteQuestionNote = {
+  validation: {
+    params: Joi.object().keys({
+      attemptId: Joi.string().trim().required(),
+      questionId: Joi.string().trim().required(),
+    }),
+  },
+
+  handler: async (req, res) => {
+    try {
+      const { attemptId, questionId } = req.params;
+
+      const attempt = await TestAttempt.findById(attemptId);
+
+      if (!attempt) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Test attempt not found');
+      }
+
+      if (attempt.status === 'completed') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot modify completed test attempt');
+      }
+
+      const questionIndex = attempt.perQuestion.findIndex(
+        (item) => item.questionId === questionId
+      );
+
+      if (questionIndex < 0) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Question not found in attempt');
+      }
+
+      attempt.perQuestion[questionIndex].note = '';
+      await attempt.save();
+
+      return res.status(httpStatus.OK).send({
+        success: true,
+        message: 'Note deleted successfully',
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to delete note');
+    }
+  },
+};
+
 // Controller to save/update note only
 const saveQuestionNote = {
   validation: {
@@ -565,4 +611,5 @@ module.exports = {
   bulkSaveAnswers,
   saveQuestionNote,
   toggleQuestionMark,
+  deleteQuestionNote
 };

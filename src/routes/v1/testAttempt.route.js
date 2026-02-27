@@ -47,6 +47,12 @@ router.patch(
 );
 
 router.patch(
+  '/questions/deleteNote/:attemptId/:questionId',
+  validate(testAttemptController.deleteQuestionNote.validation),
+  catchAsync(testAttemptController.deleteQuestionNote.handler)
+);
+
+router.patch(
   '/questions/mark/:attemptId/:questionId',
   validate(testAttemptController.toggleQuestionMark.validation),
   catchAsync(testAttemptController.toggleQuestionMark.handler)
