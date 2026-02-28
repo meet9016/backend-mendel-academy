@@ -75,19 +75,15 @@ const getAllBlogs = {
 const getBlogById = {
   handler: async (req, res) => {
     try {
-      let { _id } = req.params;
-
-      _id = encodeURIComponent(_id);
-
-      logger.info(_id, "Processed ID/Slug");
+      let id = req.originalUrl.split('/').pop()
 
       let blog;
 
       // 🔍 Check if valid Mongo ObjectId
-      if (_id.match(/^[0-9a-fA-F]{24}$/)) {
-        blog = await Blogs.findById(_id);
+      if (id.match(/^[0-9a-fA-F]{24}$/)) {
+        blog = await Blogs.findById(id);
       } else {
-        blog = await Blogs.findOne({ slug: _id });
+        blog = await Blogs.findOne({ slug: id });
       }
 
       if (!blog) {
