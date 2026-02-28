@@ -17,3 +17,4 @@ module.exports.Topic = require('./questionBank/topic.model');
 module.exports.AcademicQuestion = require('./questionBank/question.model');
 module.exports.TestAttempt = require('./testAttempt.model');
 module.exports.DemoQuestion = require('./demoQuestion.model');
+module.exports.Plans = require('./plan.model');

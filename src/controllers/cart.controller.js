@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
-const { Cart, PreRecord, ExamCategory, HyperSpecialist, LiveCourses } = require('../models');
+const { Cart, PreRecord, ExamCategory, HyperSpecialist, LiveCourses, Plans } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
 const axios = require('axios');
@@ -785,6 +785,133 @@ const addRapidToolToCart = {
     },
 };
 
+// ✅ NEW: Add QBank Plan to Cart
+const addQbankPlanToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
+            qbank_plan_id: Joi.string().required(),
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, qbank_plan_id } = req.body;
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch qbank plan
+            const plan = await Plans.findById(qbank_plan_id);
+            if (!plan) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Plan not found",
+                });
+            }
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                plan.price_usd,
+                plan.price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                qbank_plan_id,
+                cart_type: 'qbank_plan',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Plan already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true,
+                });
+            } else {
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'qbank_plan',
+                    qbank_plan_id,
+                    qbank_plan_details: {
+                        name: plan.name,
+                        price_usd: plan.price_usd,
+                        price_inr: plan.price_inr,
+                        duration: plan.duration,
+                        duration_months: plan.duration_months,
+                        features: plan.features,
+                    },
+                    category_name: "QBank Pro", // Standard category name for these plans
+                    total_price,
+                    currency: displayCurrency,
+                    duration: plan.duration,
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Plan added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in addQbankPlanToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "This plan is already in your cart",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: error.message,
+            });
+        }
+    },
+};
+
 // ✅ UPDATED: Get all cart items (includes livecourses)
 const getCart = {
     handler: async (req, res) => {
@@ -1294,4 +1421,5 @@ module.exports = {
     removeCart,
     updateCartOptions,
     removeCartOption,
+    addQbankPlanToCart
 };

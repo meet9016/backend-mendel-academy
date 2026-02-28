@@ -28,5 +28,35 @@ router.patch(
   catchAsync(testAttemptController.completeTestAttempt.handler)
 );
 
+router.patch(
+  '/questions/answer/:attemptId',
+  validate(testAttemptController.saveQuestionAnswer.validation),
+  catchAsync(testAttemptController.saveQuestionAnswer.handler)
+);
+
+router.patch(
+  '/questions/bulk/:attemptId',
+  validate(testAttemptController.bulkSaveAnswers.validation),
+  catchAsync(testAttemptController.bulkSaveAnswers.handler)
+);
+
+router.patch(
+  '/questions/note/:attemptId/:questionId',
+  validate(testAttemptController.saveQuestionNote.validation),
+  catchAsync(testAttemptController.saveQuestionNote.handler)
+);
+
+router.patch(
+  '/questions/deleteNote/:attemptId/:questionId',
+  validate(testAttemptController.deleteQuestionNote.validation),
+  catchAsync(testAttemptController.deleteQuestionNote.handler)
+);
+
+router.patch(
+  '/questions/mark/:attemptId/:questionId',
+  validate(testAttemptController.toggleQuestionMark.validation),
+  catchAsync(testAttemptController.toggleQuestionMark.handler)
+);
+
 module.exports = router;
 
