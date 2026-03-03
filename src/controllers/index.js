@@ -19,3 +19,4 @@ module.exports.academicQuestionController = require('./questionBank/question.con
 module.exports.testAttemptController = require('./testAttempt.controller');
 module.exports.demoQuestionController = require('./demoQuestion.controller');
 module.exports.plansController = require('./plan.controller');
+module.exports.flashcardController = require('./flashcard.controller');

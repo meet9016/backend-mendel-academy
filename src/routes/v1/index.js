@@ -20,6 +20,7 @@ const subjectRoute = require('./questionBank/subject.route');
 const testAttemptRoute = require('./testAttempt.route');
 const demoQuestionRoute = require('./demoQuestion.route');
 const planRoute = require('./plan.route');
+const flashcardRoute = require('./flashcard.route');
 
 const router = express.Router();
 
@@ -107,6 +108,10 @@ const defaultRoutes = [
   {
     path: '/plans',
     route: planRoute
+  },
+  {
+    path: '/flashcards',
+    route: flashcardRoute
   }
 ];
 
