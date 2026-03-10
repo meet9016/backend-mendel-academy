@@ -58,5 +58,17 @@ router.patch(
   catchAsync(testAttemptController.toggleQuestionMark.handler)
 );
 
+// Feedback routes
+router.post(
+  '/feedback',
+  validate(testAttemptController.addFeedback.validation),
+  catchAsync(testAttemptController.addFeedback.handler)
+);
+
+router.get(
+  '/feedback/:id',
+  catchAsync(testAttemptController.getFeedback.handler)
+);
+
 module.exports = router;
 

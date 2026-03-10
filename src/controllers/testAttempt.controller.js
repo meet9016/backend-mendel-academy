@@ -601,6 +601,68 @@ const getTestAttemptDetail = {
   },
 };
 
+// Controller to add or update feedback
+const addFeedback = {
+  validation: {
+    body: Joi.object().keys({
+      attemptId: Joi.string().trim().required(),
+      feedback: Joi.string().allow('').required(),
+    }),
+  },
+
+  handler: async (req, res) => {
+    try {
+      const { attemptId, feedback } = req.body;
+
+      const attempt = await TestAttempt.findById(attemptId);
+
+      if (!attempt) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Test attempt not found');
+      }
+
+      // Update or set feedback - allows one feedback per exam attempt
+      attempt.feedback = feedback;
+      await attempt.save();
+
+      return res.status(httpStatus.OK).send({
+        success: true,
+        message: 'Feedback submitted successfully',
+        feedback: attempt.feedback,
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to submit feedback');
+    }
+  },
+};
+
+// Controller to get feedback for a test attempt
+const getFeedback = {
+  handler: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const attempt = await TestAttempt.findById(id);
+
+      if (!attempt) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Test attempt not found');
+      }
+
+      return res.status(httpStatus.OK).send({
+        success: true,
+        feedback: attempt.feedback || '',
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get feedback');
+    }
+  },
+};
+
 // Export all controllers
 module.exports = {
   createTestAttempt,
@@ -611,5 +673,7 @@ module.exports = {
   bulkSaveAnswers,
   saveQuestionNote,
   toggleQuestionMark,
-  deleteQuestionNote
+  deleteQuestionNote,
+  addFeedback,
+  getFeedback,
 };
