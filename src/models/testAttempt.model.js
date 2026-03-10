@@ -91,6 +91,10 @@ const testAttemptSchema = mongoose.Schema(
       type: [perQuestionSchema],
       default: [],
     },
+    feedback: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,
