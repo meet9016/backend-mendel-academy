@@ -354,6 +354,28 @@ const verifyPayment = {
             });
             console.log(`📝 [RAZORPAY] Added RapidTool to combined email: ${examCategory.category_name} - ${toolName}`);
           }
+        } else if (cartItem.cart_type === 'elite_mentorship' && cartItem.exam_category_id) {
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const mentorshipName = cartItem.mentorship_details?.name || 'Elite Mentorship';
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Elite Mentorship",
+              details: mentorshipName
+            });
+            console.log(`📝 [RAZORPAY] Added Elite Mentorship to combined email: ${examCategory.category_name} - ${mentorshipName}`);
+          }
+        } else if (cartItem.cart_type === 'tsunami' && cartItem.exam_category_id) {
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const tsunamiName = cartItem.tsunami_details?.name || 'Tsunami Program';
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Tsunami Program",
+              details: tsunamiName
+            });
+            console.log(`📝 [RAZORPAY] Added Tsunami to combined email: ${examCategory.category_name} - ${tsunamiName}`);
+          }
         }
       }
 
@@ -610,6 +632,28 @@ const verifyPaymentStripe = {
               details: toolName
             });
             console.log(`📝 [STRIPE] Added RapidTool to combined email: ${examCategory.category_name} - ${toolName}`);
+          }
+        } else if (cartItem.cart_type === 'elite_mentorship' && cartItem.exam_category_id) {
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const mentorshipName = cartItem.mentorship_details?.name || 'Elite Mentorship';
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Elite Mentorship",
+              details: mentorshipName
+            });
+            console.log(`📝 [STRIPE] Added Elite Mentorship to combined email: ${examCategory.category_name} - ${mentorshipName}`);
+          }
+        } else if (cartItem.cart_type === 'tsunami' && cartItem.exam_category_id) {
+          const examCategory = await ExamCategory.findById(cartItem.exam_category_id).catch(() => null);
+          if (examCategory) {
+            const tsunamiName = cartItem.tsunami_details?.name || 'Tsunami Program';
+            purchasedItems.push({
+              productName: examCategory.category_name,
+              productType: "Tsunami Program",
+              details: tsunamiName
+            });
+            console.log(`📝 [STRIPE] Added Tsunami to combined email: ${examCategory.category_name} - ${tsunamiName}`);
           }
         }
       }

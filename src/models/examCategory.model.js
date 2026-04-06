@@ -79,6 +79,41 @@ const examListSchema = mongoose.Schema(
         type: Number,
       },
     }],
+    elite_mentorship: [{
+      name: {
+        type: String,
+        trim: true,
+      },
+      price_usd: {
+        type: Number,
+      },
+      price_inr: {
+        type: Number,
+      },
+    }],
+    tsunami: {
+      name: {
+        type: String,
+        trim: true,
+      },
+      included_services: {
+        type: String,
+        trim: true,
+      },
+      included_service_price_usd: {
+        type: Number,
+      },
+      included_service_price_inr: {
+        type: Number,
+      },
+      description: {
+        type: String,
+        trim: true,
+      },
+    },
+    plan_section_title: { type: String, trim: true },
+    mentorship_tsunami_section_title: { type: String, trim: true },
+    rapid_tools_section_title: { type: String, trim: true },
     who_can_enroll_title: { type: String, trim: true },
     who_can_enroll_description: { type: String, trim: true },
     who_can_enroll_image: { type: String, trim: true },

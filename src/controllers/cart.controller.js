@@ -218,7 +218,8 @@ const addExamPlanToCart = {
             const existingPlanQuery = {
                 ...(user_id ? { user_id } : { temp_id }),
                 cart_type: 'exam_plan',
-                bucket_type: true
+                bucket_type: true,
+                exam_category_id: actualCategoryId
             };
 
             // If a DIFFERENT plan exists, delete it first (since only one plan allowed)
@@ -773,17 +774,302 @@ const addRapidToolToCart = {
             if (error.code === 11000) {
                 return res.status(409).send({
                     success: false,
-                    message: "This tool is already in your cart",
+                    message: "Duplicate entry",
                 });
             }
 
             return res.status(500).send({
                 success: false,
-                message: error.message,
+                message: "Internal server error",
             });
         }
     },
 };
+
+const addEliteMentorshipToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
+            exam_category_id: Joi.string().required(),
+            mentorship_id: Joi.string().required(),
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, exam_category_id, mentorship_id } = req.body;
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch exam category
+            let examCategory;
+            let actualCategoryId = exam_category_id;
+            if (exam_category_id.match(/^[0-9a-fA-F]{24}$/)) {
+                examCategory = await ExamCategory.findById(exam_category_id);
+            } else {
+                examCategory = await ExamCategory.findOne({ "exams.slug": exam_category_id });
+                if (examCategory) {
+                    actualCategoryId = examCategory._id;
+                }
+            }
+            if (!examCategory) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Exam category not found",
+                });
+            }
+
+            // Find the specific mentorship
+            const mentorship = examCategory.elite_mentorship.id(mentorship_id);
+            if (!mentorship) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Elite mentorship not found",
+                });
+            }
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                mentorship.price_usd,
+                mentorship.price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                exam_category_id: actualCategoryId,
+                mentorship_id,
+                cart_type: 'elite_mentorship',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Mentorship already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true,
+                });
+            } else {
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'elite_mentorship',
+                    exam_category_id: actualCategoryId,
+                    mentorship_id,
+                    mentorship_details: {
+                        name: mentorship.name,
+                        price_usd: mentorship.price_usd,
+                        price_inr: mentorship.price_inr,
+                        included_services: mentorship.included_services,
+                    },
+                    category_name: examCategory.category_name,
+                    total_price,
+                    currency: displayCurrency,
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Mentorship added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in addEliteMentorshipToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "Duplicate entry",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: "Internal server error",
+            });
+        }
+    },
+};
+
+const addTsunamiToCart = {
+    validation: {
+        body: Joi.object().keys({
+            temp_id: Joi.string().allow(null, "").optional(),
+            user_id: Joi.string().allow(null, "").optional(),
+            exam_category_id: Joi.string().required(),
+            bucket_type: Joi.boolean(),
+        }),
+    },
+
+    handler: async (req, res) => {
+        try {
+            const { temp_id, user_id, exam_category_id } = req.body;
+
+            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+            const countryCode = await getUserCountryCode(ip);
+            const displayCurrency = getDisplayCurrency(countryCode);
+
+            // Fetch exam category
+            let examCategory;
+            let actualCategoryId = exam_category_id;
+            if (exam_category_id.match(/^[0-9a-fA-F]{24}$/)) {
+                examCategory = await ExamCategory.findById(exam_category_id);
+            } else {
+                examCategory = await ExamCategory.findOne({ "exams.slug": exam_category_id });
+                if (examCategory) {
+                    actualCategoryId = examCategory._id;
+                }
+            }
+            if (!examCategory) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Exam category not found",
+                });
+            }
+
+            // Check if tsunami exists
+            if (!examCategory.tsunami || !examCategory.tsunami.name) {
+                return res.status(404).send({
+                    success: false,
+                    message: "Tsunami program not found",
+                });
+            }
+
+            // Calculate price based on currency
+            const total_price = getPriceForCurrency(
+                examCategory.tsunami.included_service_price_usd,
+                examCategory.tsunami.included_service_price_inr,
+                displayCurrency
+            );
+
+            const query = {
+                exam_category_id: actualCategoryId,
+                cart_type: 'tsunami',
+                bucket_type: true
+            };
+
+            if (user_id) {
+                query.user_id = user_id;
+                query.temp_id = null;
+            } else if (temp_id) {
+                query.temp_id = temp_id;
+                query.user_id = null;
+            } else {
+                return res.status(400).send({
+                    success: false,
+                    message: "Either temp_id or user_id is required",
+                });
+            }
+
+            let cartItem = await Cart.findOne(query);
+
+            if (cartItem) {
+                cartItem.total_price = total_price;
+                cartItem.currency = displayCurrency;
+                await cartItem.save();
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Tsunami program already in cart",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: true,
+                });
+            } else {
+                cartItem = await Cart.create({
+                    temp_id: user_id ? null : temp_id,
+                    user_id: user_id || null,
+                    cart_type: 'tsunami',
+                    exam_category_id: actualCategoryId,
+                    tsunami_details: {
+                        name: examCategory.tsunami.name,
+                        included_service_price_usd: examCategory.tsunami.included_service_price_usd,
+                        included_service_price_inr: examCategory.tsunami.included_service_price_inr,
+                        description: examCategory.tsunami.description,
+                    },
+                    category_name: examCategory.category_name,
+                    total_price,
+                    currency: displayCurrency,
+                    bucket_type: true,
+                    quantity: 1
+                });
+
+                const countQuery = user_id
+                    ? { user_id, bucket_type: true }
+                    : { temp_id, bucket_type: true };
+                const totalItems = await Cart.countDocuments(countQuery);
+
+                return res.status(200).send({
+                    success: true,
+                    message: "Tsunami program added to cart successfully",
+                    cart: cartItem,
+                    count: totalItems,
+                    alreadyInCart: false,
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in addTsunamiToCart:', error);
+
+            if (error.code === 11000) {
+                return res.status(409).send({
+                    success: false,
+                    message: "Duplicate entry",
+                });
+            }
+
+            return res.status(500).send({
+                success: false,
+                message: "Internal server error",
+            });
+        }
+    },
+};
+
 
 // ✅ NEW: Add QBank Plan to Cart
 const addQbankPlanToCart = {
@@ -995,6 +1281,24 @@ const getCart = {
                     );
                 }
 
+                // ✅ NEW: Convert Elite Mentorship prices
+                if (item.cart_type === 'elite_mentorship' && item.mentorship_details) {
+                    total_price = getPriceForCurrency(
+                        item.mentorship_details.price_usd,
+                        item.mentorship_details.price_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert Tsunami prices
+                if (item.cart_type === 'tsunami' && item.tsunami_details) {
+                    total_price = getPriceForCurrency(
+                        item.tsunami_details.included_service_price_usd,
+                        item.tsunami_details.included_service_price_inr,
+                        displayCurrency
+                    );
+                }
+
                 return {
                     ...item,
                     total_price,
@@ -1107,6 +1411,24 @@ const getCheckoutPageTempId = {
                     total_price = getPriceForCurrency(
                         itemObj.livecourse_details.price_usd,
                         itemObj.livecourse_details.price_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert Elite Mentorship prices
+                if (itemObj.cart_type === 'elite_mentorship' && itemObj.mentorship_details) {
+                    total_price = getPriceForCurrency(
+                        itemObj.mentorship_details.price_usd,
+                        itemObj.mentorship_details.price_inr,
+                        displayCurrency
+                    );
+                }
+
+                // ✅ NEW: Convert Tsunami prices
+                if (itemObj.cart_type === 'tsunami' && itemObj.tsunami_details) {
+                    total_price = getPriceForCurrency(
+                        itemObj.tsunami_details.included_service_price_usd,
+                        itemObj.tsunami_details.included_service_price_inr,
                         displayCurrency
                     );
                 }
@@ -1413,6 +1735,8 @@ module.exports = {
     addHyperSpecialistToCart,
     addLiveCoursesToCart,
     addRapidToolToCart,
+    addEliteMentorshipToCart,
+    addTsunamiToCart,
     getCheckoutPageTempId,
     getCart,
     getAllCart,

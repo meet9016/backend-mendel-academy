@@ -18,7 +18,7 @@ const cartSchema = mongoose.Schema(
         // ✅ Cart type - NOW INCLUDES LIVECOURSES
         cart_type: {
             type: String,
-            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses', 'rapid_tool', 'qbank_plan'],
+            enum: ['prerecord', 'exam_plan', 'hyperspecialist', 'livecourses', 'rapid_tool', 'qbank_plan', 'elite_mentorship', 'tsunami'],
             default: 'prerecord',
             required: true,
         },
@@ -120,6 +120,28 @@ const cartSchema = mongoose.Schema(
             duration: String,
             duration_months: Number,
             features: [String],
+        },
+
+        // For Elite Mentorship
+        mentorship_id: {
+            type: String,
+            required: function () {
+                return this.cart_type === 'elite_mentorship';
+            },
+        },
+        mentorship_details: {
+            name: String,
+            price_usd: Number,
+            price_inr: Number,
+            included_services: String,
+        },
+
+        // For Tsunami
+        tsunami_details: {
+            name: String,
+            included_service_price_usd: Number,
+            included_service_price_inr: Number,
+            description: String,
         },
 
         // Common fields
@@ -297,6 +319,56 @@ cartSchema.index(
         unique: true,
         partialFilterExpression: {
             cart_type: 'qbank_plan',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ For Elite Mentorship - prevent duplicate mentorship_id per user
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, mentorship_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'elite_mentorship',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, mentorship_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'elite_mentorship',
+            bucket_type: true,
+            temp_id: { $type: 'string' }
+        }
+    }
+);
+
+// ✅ For Tsunami - prevent duplicate per category per user
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, user_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'tsunami',
+            bucket_type: true,
+            user_id: { $type: 'objectId' }
+        }
+    }
+);
+
+cartSchema.index(
+    { cart_type: 1, exam_category_id: 1, temp_id: 1, bucket_type: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            cart_type: 'tsunami',
             bucket_type: true,
             temp_id: { $type: 'string' }
         }

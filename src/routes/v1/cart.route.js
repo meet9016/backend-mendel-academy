@@ -40,6 +40,18 @@ router.post('/add-qbank-plan',
     catchAsync(cartController.addQbankPlanToCart.handler)
 );
 
+// ✅ NEW: Add Elite Mentorship to cart
+router.post('/add-elite-mentorship',
+    validate(cartController.addEliteMentorshipToCart.validation),
+    catchAsync(cartController.addEliteMentorshipToCart.handler)
+);
+
+// ✅ NEW: Add Tsunami to cart
+router.post('/add-tsunami',
+    validate(cartController.addTsunamiToCart.validation),
+    catchAsync(cartController.addTsunamiToCart.handler)
+);
+
 // ✅ Get all cart items (all types)
 router.get('/get', catchAsync(cartController.getCart.handler));
 

@@ -183,6 +183,8 @@ const getUserProfile = {
         else if (item.cart_type === 'hyperspecialist') identifier = `hyper_${item.hyperspecialist_id?._id || item.hyperspecialist_id}`;
         else if (item.cart_type === 'livecourses') identifier = `live_${item.livecourse_id?._id || item.livecourse_id}_${item.livecourse_module_id}`;
         else if (item.cart_type === 'rapid_tool') identifier = `rapid_${item.exam_category_id?._id || item.exam_category_id}_${item.tool_id}`;
+        else if (item.cart_type === 'elite_mentorship') identifier = `mentorship_${item.exam_category_id?._id || item.exam_category_id}_${item.mentorship_id}`;
+        else if (item.cart_type === 'tsunami') identifier = `tsunami_${item.exam_category_id?._id || item.exam_category_id}`;
         
         // Use createdAt as a secondary identifier to distinguish between multiple purchases of the same item if they happened at different times
         // But the user wants to see only one if they purchased only one. 

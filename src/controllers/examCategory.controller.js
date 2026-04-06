@@ -96,7 +96,9 @@ const createExamCategory = {
           image: Joi.string().optional(),
         })
       ),
-
+      plan_section_title: Joi.string().trim().optional(),
+      mentorship_tsunami_section_title: Joi.string().trim().optional(),
+      rapid_tools_section_title: Joi.string().trim().optional(),
       choose_plan_list: Joi.array().items(
         Joi.object({
           plan_pricing_dollar: Joi.number().allow("").optional(),
@@ -114,6 +116,20 @@ const createExamCategory = {
           price_inr: Joi.number().allow("").optional(),
         })
       ).optional(),
+      elite_mentorship: Joi.array().items(
+        Joi.object({
+          name: Joi.string().trim().optional(),
+          price_usd: Joi.number().allow("").optional(),
+          price_inr: Joi.number().allow("").optional(),
+        })
+      ).optional(),
+      tsunami: Joi.object({
+        name: Joi.string().trim().optional(),
+        included_services: Joi.string().trim().optional(),
+        included_service_price_usd: Joi.number().allow("").optional(),
+        included_service_price_inr: Joi.number().allow("").optional(),
+        description: Joi.string().trim().optional(),
+      }).optional(),
       who_can_enroll_title: Joi.string().trim().required(),
       who_can_enroll_description: Joi.string().trim().required(),
       who_can_enroll_image: Joi.string().optional(),
@@ -122,7 +138,7 @@ const createExamCategory = {
 
   handler: async (req, res) => {
     try {
-      const { category_name, exams, choose_plan_list, rapid_learning_tools, who_can_enroll_title,
+      const { category_name, exams, choose_plan_list, rapid_learning_tools, elite_mentorship,plan_section_title,mentorship_tsunami_section_title,rapid_tools_section_title, tsunami, who_can_enroll_title,
         who_can_enroll_description,
       } = req.body;
 
@@ -178,9 +194,14 @@ const createExamCategory = {
         exams: updatedExams,
         choose_plan_list,
         rapid_learning_tools,
+        elite_mentorship,
+        tsunami,
         who_can_enroll_title,
         who_can_enroll_description,
         who_can_enroll_image: enrollImageUrl,
+        plan_section_title,
+        mentorship_tsunami_section_title,
+        rapid_tools_section_title,
       });
 
       return res.status(201).json({
@@ -403,7 +424,9 @@ const updateExamCategory = {
           status: Joi.string().valid("Active", "Inactive").insensitive().default("Active").optional(),
         })
       ).optional(),
-
+      plan_section_title: Joi.string().trim().optional(),
+      mentorship_tsunami_section_title: Joi.string().trim().optional(),
+      rapid_tools_section_title: Joi.string().trim().optional(),
       choose_plan_list: Joi.array().items(
         Joi.object({
           _id: Joi.string().optional(),
@@ -415,7 +438,6 @@ const updateExamCategory = {
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
       ).optional(),
-
       rapid_learning_tools: Joi.alternatives().try(
         Joi.array().items(
           Joi.object({
@@ -427,6 +449,25 @@ const updateExamCategory = {
         ),
         Joi.string() // Allow JSON string for empty array case
       ).optional(),
+      elite_mentorship: Joi.alternatives().try(
+        Joi.array().items(
+          Joi.object({
+            _id: Joi.string().optional(),
+            name: Joi.string().trim().optional(),
+            price_usd: Joi.number().allow("").optional(),
+            price_inr: Joi.number().allow("").optional(),
+            included_services: Joi.string().trim().optional(),
+          })
+        ),
+        Joi.string() // Allow JSON string for empty array case
+      ).optional(),
+      tsunami: Joi.object({
+        name: Joi.string().trim().optional(),
+        included_services: Joi.string().trim().optional(),
+        included_service_price_usd: Joi.number().allow("").optional(),
+        included_service_price_inr: Joi.number().allow("").optional(),
+        description: Joi.string().trim().optional(),
+      }).optional(),
 
       who_can_enroll_title: Joi.string().trim().optional(),
       who_can_enroll_description: Joi.string().trim().optional(),
@@ -440,8 +481,13 @@ const updateExamCategory = {
       const {
         category_name,
         exams,
+        plan_section_title,
+        mentorship_tsunami_section_title,
+        rapid_tools_section_title,
         choose_plan_list,
         rapid_learning_tools,
+        elite_mentorship,
+        tsunami,
         who_can_enroll_title,
         who_can_enroll_description,
         who_can_enroll_image,
@@ -464,6 +510,12 @@ const updateExamCategory = {
 
       // Update category fields dynamically
       if (category_name) existingCategory.category_name = category_name;
+      
+      // Update section titles
+      if (plan_section_title !== undefined) existingCategory.plan_section_title = plan_section_title;
+      if (mentorship_tsunami_section_title !== undefined) existingCategory.mentorship_tsunami_section_title = mentorship_tsunami_section_title;
+      if (rapid_tools_section_title !== undefined) existingCategory.rapid_tools_section_title = rapid_tools_section_title;
+
       if (Array.isArray(exams)) {
         for (const exam of exams) {
           if (exam._id) {
@@ -548,7 +600,7 @@ const updateExamCategory = {
       if (parsedRapidTools !== undefined && Array.isArray(parsedRapidTools)) {
         // Clear existing tools first
         existingCategory.rapid_learning_tools = [];
-        
+
         // Add new/updated tools
         parsedRapidTools.forEach(tool => {
           if (tool.tool_type && (tool.price_usd || tool.price_inr)) {
@@ -560,6 +612,45 @@ const updateExamCategory = {
             });
           }
         });
+      }
+
+      // Handle elite_mentorship (can be array or JSON string for empty array)
+      let parsedEliteMentorship = elite_mentorship;
+      if (typeof elite_mentorship === 'string') {
+        try {
+          parsedEliteMentorship = JSON.parse(elite_mentorship);
+        } catch (e) {
+          parsedEliteMentorship = [];
+        }
+      }
+
+      if (parsedEliteMentorship !== undefined && Array.isArray(parsedEliteMentorship)) {
+        // Clear existing mentorship first
+        existingCategory.elite_mentorship = [];
+
+        // Add new/updated mentorship
+        parsedEliteMentorship.forEach(service => {
+          if (service.name && (service.price_usd || service.price_inr)) {
+            existingCategory.elite_mentorship.push({
+              ...(service._id && { _id: service._id }),
+              name: service.name,
+              price_usd: service.price_usd,
+              price_inr: service.price_inr,
+              included_services: service.included_services,
+            });
+          }
+        });
+      }
+
+      // Handle tsunami (object)
+      if (tsunami !== undefined && typeof tsunami === 'object' && tsunami !== null) {
+        existingCategory.tsunami = {
+          name: tsunami.name,
+          included_services: tsunami.included_services,
+          included_service_price_usd: tsunami.included_service_price_usd,
+          included_service_price_inr: tsunami.included_service_price_inr,
+          description: tsunami.description,
+        };
       }
 
       if (who_can_enroll_title) existingCategory.who_can_enroll_title = who_can_enroll_title;
