@@ -80,6 +80,10 @@ const preRecordedSchema = mongoose.Schema(
     options: {
       type: [optionSchema],
       default: []
+    },
+    image: {
+      type: String,
+      default: ''
     }
   },
   {

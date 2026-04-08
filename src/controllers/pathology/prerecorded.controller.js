@@ -4,6 +4,7 @@ const Joi = require('joi');
 const { PreRecord } = require('../../models');
 const { handlePagination } = require('../../utils/helper');
 const { getLiveRates } = require('../../utils/exchangeRates.js');
+const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../../utils/fileUpload');
 const axios = require('axios');
 
 // Helper function to get user's country and currency
@@ -89,11 +90,22 @@ const createPreRecorded = {
             description: Joi.string().trim().required(),
             date: Joi.date().required(),
             status: Joi.string().valid('Active', 'Inactive').default('Active'),
-            options: Joi.array().items(optionSchema).min(1).required()
+            options: Joi.alternatives().try(Joi.array().items(optionSchema).min(1), Joi.string()).required(),
+            image: Joi.string().allow('', null).optional()
         }),
     },
     handler: async (req, res) => {
         try {
+            // Parse options if it's a JSON string from FormData
+            if (typeof req.body.options === 'string') {
+                req.body.options = JSON.parse(req.body.options);
+            }
+
+            let imageUrl = '';
+            if (req.file) {
+                imageUrl = await uploadToExternalService(req.file, 'prerecorded');
+            }
+
             if (!req.body.options || !Array.isArray(req.body.options) || req.body.options.length === 0) {
                 return res.status(400).json({
                     success: false,
@@ -136,7 +148,10 @@ const createPreRecorded = {
             req.body.price_usd = minPriceUSD;
             req.body.price_inr = minPriceINR;
 
-            const pre_recorded = await PreRecord.create(req.body);
+            const pre_recorded = await PreRecord.create({
+                ...req.body,
+                image: imageUrl
+            });
 
             return res.status(201).json({
                 success: true,
@@ -337,7 +352,8 @@ const updatePreRecorded = {
             description: Joi.string().trim().optional(),
             date: Joi.date().optional(),
             status: Joi.string().valid('Active', 'Inactive').optional(),
-            options: Joi.array().items(optionSchema).optional()
+            options: Joi.alternatives().try(Joi.array().items(optionSchema), Joi.string()).optional(),
+            image: Joi.string().allow('', null).optional()
         }),
     },
     handler: async (req, res) => {
@@ -348,6 +364,20 @@ const updatePreRecorded = {
 
             if (!preRecordExist) {
                 throw new ApiError(httpStatus.BAD_REQUEST, 'PreRecord does not exist');
+            }
+
+            // Parse options if it's a JSON string from FormData
+            if (typeof req.body.options === 'string') {
+                req.body.options = JSON.parse(req.body.options);
+            }
+
+            let imageUrl = preRecordExist.image;
+            if (req.file) {
+                if (preRecordExist.image) {
+                    imageUrl = await updateFileOnExternalService(preRecordExist.image, req.file);
+                } else {
+                    imageUrl = await uploadToExternalService(req.file, 'prerecorded');
+                }
             }
 
             if (req.body?.title && req.body.title !== preRecordExist.title) {
@@ -398,9 +428,14 @@ const updatePreRecorded = {
                 req.body.price_inr = minPriceINR;
             }
 
+            const updateData = {
+                ...req.body,
+                image: imageUrl
+            };
+
             const preRecord = await PreRecord.findByIdAndUpdate(
                 _id,
-                req.body,
+                updateData,
                 { new: true, runValidators: true }
             );
 
@@ -427,6 +462,10 @@ const deletePreRecorded = {
 
             if (!preRecordExist) {
                 throw new ApiError(httpStatus.BAD_REQUEST, 'PreRecord does not exist');
+            }
+
+            if (preRecordExist.image) {
+                await deleteFileFromExternalService(preRecordExist.image);
             }
 
             await PreRecord.findByIdAndDelete(_id);
