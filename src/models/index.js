@@ -1,6 +1,7 @@
 module.exports.Question = require('./question.model');
 module.exports.Blogs = require('./blogs.model');
 module.exports.PreRecord = require('./pathology/prerecorded.model');
+module.exports.SubjectInfo = require('./pathology/subjectInfo.model');
 module.exports.ExamCategory = require('./examCategory.model');
 module.exports.Cart = require('./cart.model');
 module.exports.User = require('./user.model');

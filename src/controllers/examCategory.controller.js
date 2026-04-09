@@ -1,7 +1,7 @@
 const httpStatus = require("http-status");
 const ApiError = require("../utils/ApiError");
 const Joi = require("joi");
-const { ExamCategory } = require("../models");
+const { ExamCategory, SubjectInfo } = require("../models");
 const { handlePagination } = require("../utils/helper");
 const { ObjectId } = require("mongoose").Types;
 const axios = require("axios");
@@ -290,14 +290,14 @@ const getExamCategoryById = {
       console.log("💰 User Info:", userInfo); // Debug log
 
       const { _id } = req.params;
-      
+
       // 🔍 Find by MongoDB ID or Slug (within exams array)
       let category;
       if (_id.match(/^[0-9a-fA-F]{24}$/)) {
         category = await ExamCategory.findById(_id);
       } else {
         category = await ExamCategory.findOne({ "exams.slug": _id });
-        
+
         // If found by slug, move the matching exam to the front of the array
         // so frontend can consistently use exams[0]
         if (category && category.exams) {
@@ -312,15 +312,26 @@ const getExamCategoryById = {
       if (!category)
         return res.status(404).json({ message: "Category/Exam not found" });
 
+      const selectedExam = category.exams?.[0];
+
+      let subjectInfo = null;
+      console.log(selectedExam._id, 'selectedExam._id')
+
+      if (selectedExam?._id) {
+        subjectInfo = await SubjectInfo.find({
+          exam_id: category._id,
+        });
+      }
       // If it was found by slug, we might want to return the specific exam context
       // but the current frontend seems to expect the whole category document.
-      
+
       // ✅ Return with user currency info
       res.status(200).json({
         ...category._doc,
         user_country: userInfo.country,
         user_currency: userInfo.currency, // INR or USD
         choose_plan_list: category.choose_plan_list, // Prices stay as is
+        subject_info: subjectInfo
       });
 
     } catch (err) {
@@ -493,7 +504,7 @@ const updateExamCategory = {
         who_can_enroll_description,
         who_can_enroll_image,
       } = req.body;
-      
+
       const existingCategory = await ExamCategory.findById(_id);
       if (!existingCategory) {
         return res.status(404).json({ message: "Exam category not found" });
@@ -511,7 +522,7 @@ const updateExamCategory = {
 
       // Update category fields dynamically
       if (category_name !== undefined) existingCategory.category_name = category_name;
-      
+
       // Update section titles - now can be set to null/empty string to clear them
       if (plan_section_title !== undefined) existingCategory.plan_section_title = plan_section_title;
       if (mentorship_tsunami_section_title !== undefined) existingCategory.mentorship_tsunami_section_title = mentorship_tsunami_section_title;

@@ -6,6 +6,7 @@ const blogsRoute = require('./blogs.route');
 const preRoute = require('./pathology/prerecorded.route');
 const liveRoute = require('./pathology/liveCourses.route');
 const upcommingprogramRoute = require('./pathology/upComingProgram.route');
+const subjectInfoRoute = require('./pathology/subjectInfo.route');
 const examListRoute = require('./examCategory.route');
 const cartRoute = require('./cart.route');
 const paymentRoute = require('./payment.route');
@@ -72,6 +73,10 @@ const defaultRoutes = [
   {
     path: '/upcomming-program',
     route: upcommingprogramRoute
+  },
+  {
+    path: '/subject-info',
+    route: subjectInfoRoute
   },
   {
     path: '/hyperSpecialist',

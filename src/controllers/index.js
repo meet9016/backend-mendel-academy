@@ -3,6 +3,7 @@ module.exports.categoryController = require('./category.controller');
 module.exports.questionController = require('./question.controller');
 module.exports.blogsController = require('./blogs.controller');
 module.exports.preRecordedController = require('./pathology/prerecorded.controller');
+module.exports.subjectInfoController = require('./pathology/subjectInfo.controller');
 module.exports.liveCoursesController = require('./pathology/livecourses.controller');
 module.exports.examCategoryController = require('./examCategory.controller');
 module.exports.cartController = require('./cart.controller');
