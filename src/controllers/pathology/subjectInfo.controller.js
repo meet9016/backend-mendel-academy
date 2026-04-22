@@ -96,17 +96,13 @@ const createSubjectInfo = {
 
       console.log('Data to save:', dataToSave);
 
-      const subjectInfo = await SubjectInfo.findOneAndUpdate(
-        { exam_id: dataToSave.exam_id },
-        dataToSave,
-        { upsert: true, new: true, runValidators: true }
-      );
+      // FIX: Use save() for creating new document instead of findOneAndUpdate with upsert
+      const subjectInfo = new SubjectInfo(dataToSave);
+      await subjectInfo.save();
 
-      const isCreated = !subjectInfo.createdAt || subjectInfo.createdAt === subjectInfo.updatedAt;
-
-      return res.status(isCreated ? 201 : 200).json({
+      return res.status(201).json({
         success: true,
-        message: isCreated ? "Subject info created successfully!" : "Subject info updated successfully!",
+        message: "Subject info created successfully!",
         data: subjectInfo
       });
     } catch (error) {
