@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const app = require('./app');
 const config = require('./config/config');
 const logger = require('./config/logger');
+require('node:dns').setServers(['1.1.1.1','8.8.8.8'])
 
 let server;
 mongoose.connect(config.mongoose.url, config.mongoose.options).then(() => {

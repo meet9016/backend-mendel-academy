@@ -99,12 +99,15 @@ const createExamCategory = {
       plan_section_title: Joi.string().trim().optional().allow(null, ''),
       mentorship_tsunami_section_title: Joi.string().trim().optional().allow(null, ''),
       rapid_tools_section_title: Joi.string().trim().optional().allow(null, ''),
+      is_plan_visible: Joi.boolean().truthy('true').falsy('false').default(true).optional(),
+      is_rapid_tools_visible: Joi.boolean().truthy('true').falsy('false').default(true).optional(),
       choose_plan_list: Joi.array().items(
         Joi.object({
           plan_pricing_dollar: Joi.number().allow("").optional(),
           plan_pricing_inr: Joi.number().allow("").optional(),
           plan_month: Joi.number().required(),
           plan_type: Joi.string().trim().required(),
+          plan_title: Joi.string().trim().optional().allow(null, ''),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
@@ -119,6 +122,7 @@ const createExamCategory = {
       elite_mentorship: Joi.array().items(
         Joi.object({
           name: Joi.string().trim().optional(),
+          subtitle: Joi.string().trim().optional().allow(null, ''),
           price_usd: Joi.number().allow("").optional(),
           price_inr: Joi.number().allow("").optional(),
           included_services: Joi.string().trim().optional().allow(null, ''),
@@ -439,6 +443,8 @@ const updateExamCategory = {
       plan_section_title: Joi.string().trim().optional().allow(null, ''),
       mentorship_tsunami_section_title: Joi.string().trim().optional().allow(null, ''),
       rapid_tools_section_title: Joi.string().trim().optional().allow(null, ''),
+      is_plan_visible: Joi.boolean().truthy('true').falsy('false').default(true).optional(),
+      is_rapid_tools_visible: Joi.boolean().truthy('true').falsy('false').default(true).optional(),
       choose_plan_list: Joi.array().items(
         Joi.object({
           _id: Joi.string().optional(),
@@ -446,6 +452,7 @@ const updateExamCategory = {
           plan_pricing_inr: Joi.number().allow("", null).optional(),
           plan_month: Joi.number().required(),
           plan_type: Joi.string().trim().required(),
+          plan_title: Joi.string().optional().allow(null, ''),
           plan_sub_title: Joi.array(),
           most_popular: Joi.boolean().truthy('true').falsy('false').default(false),
         })
@@ -466,6 +473,7 @@ const updateExamCategory = {
           Joi.object({
             _id: Joi.string().optional(),
             name: Joi.string().trim().optional(),
+            subtitle: Joi.string().trim().optional().allow(null, ''),
             price_usd: Joi.number().allow("", null).optional(),
             price_inr: Joi.number().allow("", null).optional(),
             included_services: Joi.string().trim().optional().allow(null, ''),
@@ -496,6 +504,8 @@ const updateExamCategory = {
         plan_section_title,
         mentorship_tsunami_section_title,
         rapid_tools_section_title,
+        is_plan_visible,
+        is_rapid_tools_visible,
         choose_plan_list,
         rapid_learning_tools,
         elite_mentorship,
@@ -527,6 +537,8 @@ const updateExamCategory = {
       if (plan_section_title !== undefined) existingCategory.plan_section_title = plan_section_title;
       if (mentorship_tsunami_section_title !== undefined) existingCategory.mentorship_tsunami_section_title = mentorship_tsunami_section_title;
       if (rapid_tools_section_title !== undefined) existingCategory.rapid_tools_section_title = rapid_tools_section_title;
+      if (is_plan_visible !== undefined) existingCategory.is_plan_visible = is_plan_visible;
+      if (is_rapid_tools_visible !== undefined) existingCategory.is_rapid_tools_visible = is_rapid_tools_visible;
 
       if (Array.isArray(exams)) {
         for (const exam of exams) {
@@ -580,6 +592,8 @@ const updateExamCategory = {
               if (plan.plan_sub_title !== undefined)
                 existingPlan.plan_sub_title = plan.plan_sub_title;
 
+              existingPlan.plan_title = plan.plan_title ?? existingPlan.plan_title ?? '';
+
               if (plan.most_popular !== undefined)
                 existingPlan.most_popular = plan.most_popular;
             }
@@ -592,6 +606,7 @@ const updateExamCategory = {
               plan_pricing_inr: plan.plan_pricing_inr,
               plan_month: plan.plan_month,
               plan_type: plan.plan_type,
+              plan_title: plan.plan_title || '',
               plan_sub_title: plan.plan_sub_title || [],
               most_popular: plan.most_popular ?? false,
             });
@@ -646,6 +661,7 @@ const updateExamCategory = {
             existingCategory.elite_mentorship.push({
               ...(service._id && { _id: service._id }),
               name: service.name,
+              subtitle: service.subtitle,
               price_usd: service.price_usd,
               price_inr: service.price_inr,
               included_services: service.included_services,

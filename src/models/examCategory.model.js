@@ -59,6 +59,11 @@ const examListSchema = mongoose.Schema(
         type: String,
         required: true,
       },
+      plan_title: {
+        type: String,
+        trim: true,
+        default: '',
+      },
       plan_sub_title: [{
         type: String,
       }],
@@ -81,6 +86,10 @@ const examListSchema = mongoose.Schema(
     }],
     elite_mentorship: [{
       name: {
+        type: String,
+        trim: true,
+      },
+      subtitle: {
         type: String,
         trim: true,
       },
@@ -114,6 +123,8 @@ const examListSchema = mongoose.Schema(
     plan_section_title: { type: String, trim: true },
     mentorship_tsunami_section_title: { type: String, trim: true },
     rapid_tools_section_title: { type: String, trim: true },
+    is_plan_visible: { type: Boolean, default: true },
+    is_rapid_tools_visible: { type: Boolean, default: true },
     who_can_enroll_title: { type: String, trim: true },
     who_can_enroll_description: { type: String, trim: true },
     who_can_enroll_image: { type: String, trim: true },
