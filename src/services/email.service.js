@@ -297,13 +297,49 @@ const sendEmail = async (to, subject, text) => {
 };
 
 const sendResetPasswordEmail = async (to, token) => {
-  const subject = "Reset password";
-  // replace this url with the link to the reset password page of your front-end app
-  const resetPasswordUrl = `http://link-to-app/reset-password?token=${token}`;
-  const text = `Dear user,
-To reset your password, click on this link: ${resetPasswordUrl}
-If you did not request any password resets, then ignore this email.`;
-  await sendEmail(to, subject, text);
+  const resetPasswordUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${token}`;
+  const subject = "Reset Your Password - Mendel Academy";
+
+  const mailOptions = {
+    from: `"Mendel Academy" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: `
+<div style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellspacing="0" cellpadding="0"
+    style="max-width:600px; margin:30px auto; background:#ffffff; border-radius:10px; overflow:hidden;">
+    <tr>
+      <td style="background:#232323; padding:30px; text-align:center;">
+        <h1 style="color:#F1C232; margin:0;">Reset Your Password 🔐</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:30px; color:#333; font-size:15px; line-height:1.6;">
+        <p>Hi there,</p>
+        <p>We received a request to reset your password for your <strong>Mendel Academy</strong> account.</p>
+        <p>Click the button below to reset your password. This link is valid for <strong>10 minutes</strong>.</p>
+        <div style="text-align:center; margin:30px 0;">
+          <a href="${resetPasswordUrl}"
+            style="background:#F1C232; color:#232323; padding:14px 32px; text-decoration:none;
+                   border-radius:8px; font-size:16px; font-weight:bold; display:inline-block;">
+            Reset Password
+          </a>
+        </div>
+        <p style="font-size:13px; color:#888;">If you didn't request this, you can safely ignore this email.</p>
+        // <p style="font-size:13px; color:#888;">Or copy this link: <a href="${resetPasswordUrl}" style="color:#F1C232;">${resetPasswordUrl}</a></p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#232323; padding:15px; text-align:center; color:#F1C232; font-size:12px;">
+        © ${new Date().getFullYear()} Mendel Academy
+      </td>
+    </tr>
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
 };
 
 const sendVerificationEmail = async (to, token) => {
