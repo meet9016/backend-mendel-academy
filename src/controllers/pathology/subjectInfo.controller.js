@@ -1,5 +1,6 @@
 const httpStatus = require('http-status');
 const Joi = require('joi');
+const ExcelJS = require('exceljs');
 const { SubjectInfo } = require('../../models');
 const ApiError = require('../../utils/ApiError');
 const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../../utils/fileUpload');
@@ -338,11 +339,145 @@ const deleteSubjectInfo = {
   }
 };
 
+// Helper: parse one worksheet into array of row objects
+// Empty cell = inherit value from row above (fill-down)
+const parseSheet = (worksheet) => {
+  const rows = [];
+  const headers = [];
+  const lastValues = {};
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) {
+      row.eachCell((cell) => headers.push(cell.value?.toString().trim() || ''));
+    } else {
+      const rowData = {};
+      headers.forEach((header, idx) => {
+        const cell = row.getCell(idx + 1);
+        const val = cell.value?.toString().trim() || '';
+        if (val) {
+          lastValues[header] = val;
+        }
+        rowData[header] = lastValues[header] || '';
+      });
+      // Only push if subtopic_name has a value (last column drives rows)
+      const lastCol = headers[headers.length - 1];
+      if (rowData[lastCol]) rows.push(rowData);
+    }
+  });
+  return rows;
+};
+
+const bulkUploadSubjectInfo = {
+  handler: async (req, res) => {
+    try {
+      const { exam_id } = req.body;
+      if (!exam_id) {
+        return res.status(400).json({ success: false, message: 'exam_id is required' });
+      }
+
+      const excelFile = req.files && req.files.find(f => f.fieldname === 'file');
+      if (!excelFile) {
+        return res.status(400).json({ success: false, message: 'Excel file is required' });
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(excelFile.buffer);
+      const worksheet = workbook.worksheets[0];
+
+      const rows = parseSheet(worksheet);
+
+      if (rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Excel file has no data rows' });
+      }
+
+      // Build subject -> chapter -> topic -> subtopic hierarchy
+      const subjectMap = new Map();
+      for (const row of rows) {
+        const subjectName = row['subject_name'];
+        if (!subjectName) continue;
+
+        if (!subjectMap.has(subjectName)) {
+          subjectMap.set(subjectName, {
+            exam_id,
+            name:        subjectName,
+            sku:         row['subject_sku']    || '',
+            title:       row['subject_title']  || '',
+            slogan:      row['subject_slogan'] || '',
+            description: '',
+            image:       '',
+            chapters:    [],
+          });
+        }
+
+        const subject = subjectMap.get(subjectName);
+        const chapterTitle = row['chapter_title'];
+        if (!chapterTitle) continue;
+
+        let chapter = subject.chapters.find(c => c.title === chapterTitle);
+        if (!chapter) {
+          chapter = {
+            title:      chapterTitle,
+            long_title: row['chapter_long_title'] || '',
+            image:      '',
+            topics:     [],
+          };
+          subject.chapters.push(chapter);
+        }
+
+        const topicTitle = row['topic_title'];
+        if (!topicTitle) continue;
+
+        let topic = chapter.topics.find(t => t.title === topicTitle);
+        if (!topic) {
+          topic = { title: topicTitle, lessons: [] };
+          chapter.topics.push(topic);
+        }
+
+        const subtopicName = row['subtopic_name'];
+        if (subtopicName) {
+          topic.lessons.push({
+            name:        subtopicName,
+            video_link:  '',
+            image:       '',
+            tags:        [],
+            full_title:  '',
+            description: '',
+          });
+        }
+      }
+
+      const subjects = Array.from(subjectMap.values());
+      if (subjects.length === 0) {
+        return res.status(400).json({ success: false, message: 'No valid data found. Required columns: subject_name, subject_sku, subject_title, subject_slogan, chapter_title, chapter_long_title, topic_title, subtopic_name' });
+      }
+
+      const saved = [];
+      for (const subjectData of subjects) {
+        const subjectInfo = new SubjectInfo(subjectData);
+        await subjectInfo.save();
+        saved.push(subjectInfo);
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: `${saved.length} subject(s) uploaded successfully!`,
+        data: saved,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to bulk upload subjects',
+      });
+    }
+  }
+};
+
 module.exports = {
   createSubjectInfo,
   getAllSubjectInfo,
   getSubjectInfoByExamId,
   getByIdSubjectInfo,
   updateSubjectInfo,
-  deleteSubjectInfo
+  deleteSubjectInfo,
+  bulkUploadSubjectInfo
 };

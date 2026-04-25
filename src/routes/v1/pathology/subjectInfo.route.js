@@ -7,6 +7,7 @@ const upload = require('../../../middlewares/upload');
 const router = express.Router();
 
 router.post('/create', upload.any(), validate(subjectInfoController.createSubjectInfo.validation), catchAsync(subjectInfoController.createSubjectInfo.handler));
+router.post('/bulk-upload', upload.any(), catchAsync(subjectInfoController.bulkUploadSubjectInfo.handler));
 router.get('/getall', catchAsync(subjectInfoController.getAllSubjectInfo.handler));
 router.get('/getByExamId/:exam_id', catchAsync(subjectInfoController.getSubjectInfoByExamId.handler));
 router.get('/getById/:id', catchAsync(subjectInfoController.getByIdSubjectInfo.handler));
