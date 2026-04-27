@@ -205,8 +205,9 @@ const updateSubjectInfo = {
       title: Joi.string().trim().allow('', null).optional(),
       description: Joi.string().trim().allow('', null).optional(),
       slogan: Joi.string().trim().allow('', null).optional(),
-      chapters: Joi.string().optional()
-    }),
+      chapters: Joi.string().optional(),
+      existing_image: Joi.string().allow('', null).optional(),
+    }).unknown(true),
   },
   handler: async (req, res) => {
     try {
@@ -227,7 +228,12 @@ const updateSubjectInfo = {
           } else {
             imageUrl = await uploadToExternalService(mainImage, 'subject-info');
           }
+        } else if (req.body.existing_image) {
+          // No new image uploaded — keep existing URL as-is
+          imageUrl = req.body.existing_image;
         }
+      } else if (req.body.existing_image) {
+        imageUrl = req.body.existing_image;
       }
 
       let chapters = req.body.chapters ? JSON.parse(req.body.chapters) : subjectInfoExist.chapters;
@@ -270,6 +276,20 @@ const updateSubjectInfo = {
         }
       }
 
+      // Restore existing chapter image URLs where no new file was uploaded
+      Object.keys(req.body).forEach(key => {
+        if (key.startsWith('chapter_existing_image_')) {
+          const index = parseInt(key.replace('chapter_existing_image_', ''));
+          if (!isNaN(index) && chapters[index]) {
+            // Only set if no new file was uploaded for this chapter
+            const hasNewFile = req.files && req.files.some(f => f.fieldname === `chapter_image_${index}`);
+            if (!hasNewFile) {
+              chapters[index].image = req.body[key];
+            }
+          }
+        }
+      });
+
       const updateData = {
         ...req.body,
         image: imageUrl,
@@ -303,27 +323,9 @@ const deleteSubjectInfo = {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Subject info does not exist');
       }
 
-      // Delete images
-      if (subjectInfoExist.image) {
-        await deleteFileFromExternalService(subjectInfoExist.image);
-      }
-
-      // Delete chapter images
-      for (const chapter of subjectInfoExist.chapters) {
-        if (chapter.image) {
-          await deleteFileFromExternalService(chapter.image);
-        }
-
-        // Delete lesson images
-        for (const topic of chapter.topics) {
-          for (const lesson of topic.lessons) {
-            if (lesson.image) {
-              await deleteFileFromExternalService(lesson.image);
-            }
-          }
-        }
-      }
-
+      // Delete DB record only - do not delete image files
+      // Images may be shared across multiple subjects (e.g. same URL pasted in Excel for multiple subjects)
+      // Image cleanup should be handled separately if needed
       await SubjectInfo.findByIdAndDelete(id);
 
       res.send({
@@ -341,6 +343,16 @@ const deleteSubjectInfo = {
 
 // Helper: parse one worksheet into array of row objects
 // Empty cell = inherit value from row above (fill-down)
+const getCellValue = (cell) => {
+  const val = cell.value;
+  if (val === null || val === undefined) return '';
+  // ExcelJS returns hyperlink cells as { text, hyperlink } object
+  if (typeof val === 'object' && val.hyperlink) return val.hyperlink.toString().trim();
+  if (typeof val === 'object' && val.text) return val.text.toString().trim();
+  if (typeof val === 'object' && val.result !== undefined) return val.result?.toString().trim() || '';
+  return val.toString().trim();
+};
+
 const parseSheet = (worksheet) => {
   const rows = [];
   const headers = [];
@@ -348,18 +360,17 @@ const parseSheet = (worksheet) => {
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) {
-      row.eachCell((cell) => headers.push(cell.value?.toString().trim() || ''));
+      row.eachCell((cell) => headers.push(getCellValue(cell) || ''));
     } else {
       const rowData = {};
       headers.forEach((header, idx) => {
         const cell = row.getCell(idx + 1);
-        const val = cell.value?.toString().trim() || '';
+        const val = getCellValue(cell);
         if (val) {
           lastValues[header] = val;
         }
         rowData[header] = lastValues[header] || '';
       });
-      // Only push if subtopic_name has a value (last column drives rows)
       const lastCol = headers[headers.length - 1];
       if (rowData[lastCol]) rows.push(rowData);
     }
@@ -400,11 +411,11 @@ const bulkUploadSubjectInfo = {
           subjectMap.set(subjectName, {
             exam_id,
             name:        subjectName,
-            sku:         row['subject_sku']    || '',
-            title:       row['subject_title']  || '',
-            slogan:      row['subject_slogan'] || '',
+            sku:         row['subject_sku']       || '',
+            title:       row['subject_title']     || '',
+            slogan:      row['subject_slogan']    || '',
             description: '',
-            image:       '',
+            image:       row['subject_image_url'] || '',
             chapters:    [],
           });
         }
@@ -417,8 +428,8 @@ const bulkUploadSubjectInfo = {
         if (!chapter) {
           chapter = {
             title:      chapterTitle,
-            long_title: row['chapter_long_title'] || '',
-            image:      '',
+            long_title: row['chapter_long_title']  || '',
+            image:      row['chapter_image_url']   || '',
             topics:     [],
           };
           subject.chapters.push(chapter);
