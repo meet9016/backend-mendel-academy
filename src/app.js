@@ -39,10 +39,10 @@ app.use(
 );
 
 // Parse json request body
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json({ limit: '20mb' }))
 
 // Parse urlencoded request body
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Sanitize request data
 app.use(xss());
