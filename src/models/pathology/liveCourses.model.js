@@ -11,8 +11,33 @@ const liveCoursesSchema = mongoose.Schema(
             name: { type: String, required: true },
             qualification: { type: String },
             image: { type: String }, // optional
+            experience: { type: String }, // added
+            students_taught: { type: String }, // added
+            quote: { type: String }, // added
         },
         tags: [
+            {
+                type: String,
+            },
+        ],
+        hero_subtitle: {
+            type: String,
+        },
+        course_image: {
+            type: String,
+        },
+        students_enrolled: {
+            type: String,
+        },
+        left_this_week: {
+            type: String,
+        },
+        master_features: [
+            {
+                type: String,
+            },
+        ],
+        course_includes: [
             {
                 type: String,
             },

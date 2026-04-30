@@ -79,10 +79,19 @@ const createLiveCourses = {
     validation: {
         body: Joi.object().keys({
             course_title: Joi.string().trim().required(),
+            hero_subtitle: Joi.string().trim().allow("").optional(),
+            course_image: Joi.string().trim().allow("").optional(),
+            students_enrolled: Joi.string().trim().allow("").optional(),
+            left_this_week: Joi.string().trim().allow("").optional(),
+            master_features: Joi.array().items(Joi.string().trim()).optional(),
+            course_includes: Joi.array().items(Joi.string().trim()).optional(),
             instructor: Joi.object({
                 name: Joi.string().trim().required(),
                 qualification: Joi.string().trim().allow(""),
-                image: Joi.string().trim().allow("", null).optional() // ✅ Added image field
+                image: Joi.string().trim().allow("", null).optional(),
+                experience: Joi.string().trim().allow("").optional(),
+                students_taught: Joi.string().trim().allow("").optional(),
+                quote: Joi.string().trim().allow("").optional()
             }).required(),
             tags: Joi.array().items(Joi.string().trim()).optional(),
             date: Joi.date().required(),
@@ -336,10 +345,19 @@ const updateLiveCourses = {
     validation: {
         body: Joi.object().keys({
             course_title: Joi.string().trim().optional(),
+            hero_subtitle: Joi.string().trim().allow("").optional(),
+            course_image: Joi.string().trim().allow("").optional(),
+            students_enrolled: Joi.string().trim().allow("").optional(),
+            left_this_week: Joi.string().trim().allow("").optional(),
+            master_features: Joi.array().items(Joi.string().trim()).optional(),
+            course_includes: Joi.array().items(Joi.string().trim()).optional(),
             instructor: Joi.object({
                 name: Joi.string().trim().required(),
                 qualification: Joi.string().trim().allow(""),
-                image: Joi.string().trim().allow("", null).optional() // ✅ Added image field
+                image: Joi.string().trim().allow("", null).optional(),
+                experience: Joi.string().trim().allow("").optional(),
+                students_taught: Joi.string().trim().allow("").optional(),
+                quote: Joi.string().trim().allow("").optional()
             }).optional(),
             tags: Joi.array().items(Joi.string().trim()).optional(),
             date: Joi.date().optional(),
