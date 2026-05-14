@@ -58,13 +58,17 @@ const getAllUpcomingProgram = {
             programs.sort((a, b) => new Date(a.date) - new Date(b.date));
 
             // Format date as "Month Year"
-            const formattedData = programs.map(item => ({
-                ...item._doc,
-                date: new Date(item.date).toLocaleString("en-US", {
-                    month: "long",
-                    year: "numeric"
-                })
-            }));
+            const formattedData = programs.map(item => {
+                const itemObj = item.toObject();
+                return {
+                    ...itemObj,
+                    id: itemObj._id,
+                    date: new Date(item.date).toLocaleString("en-US", {
+                        month: "long",
+                        year: "numeric"
+                    })
+                };
+            });
 
             return res.json({
                 success: true,

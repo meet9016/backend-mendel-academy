@@ -231,6 +231,7 @@ const getAllPreRecorded = {
 
                 return {
                     ...recordObj,
+                    id: recordObj._id,
                     price: displayPrice,
                     currency: displayCurrency,
                     user_country: user.country,
