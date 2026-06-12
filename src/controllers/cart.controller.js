@@ -8,11 +8,15 @@ const axios = require('axios');
 const getCountryFromIP = require('../utils/getCountryFromIP');
 
 const getUserCountryCode = async (reqOrIp) => {
-    return await getCountryFromIP(reqOrIp);
+    const code = await getCountryFromIP(reqOrIp);
+    console.log(`[cart.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
+    return code;
 };
 
 const getDisplayCurrency = (countryCode) => {
-    return countryCode === 'IN' ? 'INR' : 'USD';
+    const currency = countryCode === 'IN' ? 'INR' : 'USD';
+    console.log(`[cart.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
+    return currency;
 };
 
 const getPriceForCurrency = (priceUsd, priceInr, currency) => {

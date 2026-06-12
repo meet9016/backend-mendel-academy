@@ -9,11 +9,15 @@ const getCountryFromIP = require('../../utils/getCountryFromIP');
 
 // ✅ IP-based currency detection (same as cart controller)
 const getUserCountryCode = async (reqOrIp) => {
-    return await getCountryFromIP(reqOrIp);
+    const code = await getCountryFromIP(reqOrIp);
+    console.log(`[hyperSpecialist.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
+    return code;
 };
 
 const getDisplayCurrency = (countryCode) => {
-    return countryCode === 'IN' ? 'INR' : 'USD';
+    const currency = countryCode === 'IN' ? 'INR' : 'USD';
+    console.log(`[hyperSpecialist.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
+    return currency;
 };
 
 const getPriceForCurrency = (priceUsd, priceInr, currency) => {

@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 async function getCountryFromIP(reqOrIp) {
+  console.log(`[getCountryFromIP] Called with reqOrIp type: ${typeof reqOrIp}`);
   try {
     let ip = "";
     let countryCode = "";
@@ -16,7 +17,9 @@ async function getCountryFromIP(reqOrIp) {
         req.headers["x-real-ip-country"];
 
       if (countryCode) {
-        return countryCode.trim().toUpperCase();
+        const cleanedCode = countryCode.trim().toUpperCase();
+        console.log(`[getCountryFromIP] Detected country code from proxy headers: "${cleanedCode}"`);
+        return cleanedCode;
       }
 
       // Extract IP for fallback
@@ -25,8 +28,10 @@ async function getCountryFromIP(reqOrIp) {
         req.socket?.remoteAddress ||
         req.ip ||
         "";
+      console.log(`[getCountryFromIP] No proxy geo headers. Extracted IP for fallback: "${ip}"`);
     } else if (typeof reqOrIp === "string") {
       ip = reqOrIp;
+      console.log(`[getCountryFromIP] String input received as IP: "${ip}"`);
     }
 
     // Clean up IP
@@ -42,17 +47,24 @@ async function getCountryFromIP(reqOrIp) {
       ip === "localhost" ||
       ip.includes("::ffff:127.0.0.1")
     ) {
+      console.log(`[getCountryFromIP] Local/Dev IP detected: "${ip}". Defaulting to "IN"`);
       return "IN";
     }
 
     // 3. Fallback to IP API (HTTP request)
-    const res = await axios.get(`http://ip-api.com/json/${ip}`);
+    const url = `http://ip-api.com/json/${ip}`;
+    console.log(`[getCountryFromIP] Querying IP API: ${url}`);
+    const res = await axios.get(url);
     if (res.data && res.data.countryCode) {
-      return res.data.countryCode.toUpperCase();
+      const apiCode = res.data.countryCode.toUpperCase();
+      console.log(`[getCountryFromIP] IP API resolved "${ip}" to: "${apiCode}"`);
+      return apiCode;
     }
+    console.log(`[getCountryFromIP] IP API response did not contain countryCode. Defaulting to "US"`);
     return "US";
   } catch (err) {
     // 4. Default fallback on error is US so international/USA users get USD
+    console.log(`[getCountryFromIP] Error in IP detection for "${reqOrIp}": ${err.message}. Defaulting to "US"`);
     return "US";
   }
 }

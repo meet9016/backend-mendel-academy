@@ -24,42 +24,70 @@
 const axios = require("axios");
 
 async function getCurrencyFromCountry(countryName) {
+  console.log(`[getCurrencyFromCountry] Called with countryName: "${countryName}"`);
   try {
-    if (!countryName) return "USD";
+    if (!countryName) {
+      console.log(`[getCurrencyFromCountry] Empty countryName. Fallback: "USD"`);
+      return "USD";
+    }
 
-    // Fix common abbreviations
+    const trimmedCountry = countryName.trim();
+    // Common mappings to standard ISO codes
     const countryMap = {
-      USA: "United States",
-      UK: "United Kingdom",
-      UAE: "United Arab Emirates",
-      Europe: "Germany", // pick major EUR country
-      EU: "Germany",
-      Russia: "Russian Federation",
+      USA: "US",
+      UK: "GB",
+      UAE: "AE",
+      Europe: "DE", // pick major EUR country
+      EU: "DE",
+      Russia: "RU",
     };
 
-    if (countryMap[countryName]) {
-      countryName = countryMap[countryName];
+    let searchKey = trimmedCountry;
+    if (countryMap[trimmedCountry]) {
+      searchKey = countryMap[trimmedCountry];
+      console.log(`[getCurrencyFromCountry] Mapped abbreviation "${trimmedCountry}" to ISO code "${searchKey}"`);
     }
 
-    // Try full match
     let response = null;
-    try {
-      response = await axios.get(
-        `https://restcountries.com/v3.1/name/${countryName}?fullText=true`
-      );
-    } catch (_) {
-      // If fullText fails → try partial match
-      response = await axios.get(
-        `https://restcountries.com/v3.1/name/${countryName}`
-      );
+    let url = "";
+
+    // If it looks like a 2 or 3 letter ISO code
+    if (searchKey.length === 2 || searchKey.length === 3) {
+      url = `https://restcountries.com/v3.1/alpha/${searchKey}`;
+      console.log(`[getCurrencyFromCountry] Fetching from alpha endpoint: ${url}`);
+      try {
+        response = await axios.get(url);
+      } catch (err) {
+        console.log(`[getCurrencyFromCountry] Alpha endpoint failed for "${searchKey}": ${err.message}. Trying name search...`);
+      }
     }
 
-    const currencies = response.data[0].currencies;
-    const currencyCode = Object.keys(currencies)[0]; // Example: USD, EUR, AUD
+    if (!response) {
+      // Try full match by name
+      url = `https://restcountries.com/v3.1/name/${searchKey}?fullText=true`;
+      console.log(`[getCurrencyFromCountry] Fetching from name endpoint (fullText): ${url}`);
+      try {
+        response = await axios.get(url);
+      } catch (err) {
+        console.log(`[getCurrencyFromCountry] Full text name match failed for "${searchKey}": ${err.message}. Trying partial match...`);
+        // If fullText fails -> try partial match
+        url = `https://restcountries.com/v3.1/name/${searchKey}`;
+        console.log(`[getCurrencyFromCountry] Fetching from name endpoint (partial): ${url}`);
+        response = await axios.get(url);
+      }
+    }
 
-    return currencyCode;
+    if (response && response.data && response.data[0] && response.data[0].currencies) {
+      const currencies = response.data[0].currencies;
+      const currencyCode = Object.keys(currencies)[0];
+      console.log(`[getCurrencyFromCountry] Successfully resolved "${trimmedCountry}" to currency: "${currencyCode}"`);
+      return currencyCode;
+    } else {
+      console.log(`[getCurrencyFromCountry] No currencies found in response. Fallback: "USD"`);
+      return "USD";
+    }
   } catch (err) {
-    console.log("❌ Currency lookup failed:", err.message);
+    console.log(`❌ [getCurrencyFromCountry] Currency lookup failed for "${countryName}":`, err.message);
     return "USD"; // fallback
   }
 }

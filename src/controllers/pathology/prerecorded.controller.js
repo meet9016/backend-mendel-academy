@@ -31,20 +31,20 @@ const getUserCountryCode = async (reqOrIp) => {
         const countryCode = await getCountryFromIP(reqOrIp);
         const currency = countryCode === "IN" ? "INR" : "USD";
         const country = countryCode === "IN" ? "India" : "United States";
-        return {
-            country,
-            countryCode,
-            currency
-        };
+        const result = { country, countryCode, currency };
+        console.log(`[prerecorded.controller -> getUserCountryCode] Resolved to:`, result);
+        return result;
     } catch (err) {
-        console.error('❌ IP detection error:', err.message);
+        console.error('❌ [prerecorded.controller -> getUserCountryCode] IP detection error:', err.message);
         return { country: "United States", countryCode: "US", currency: "USD" };
     }
 };
 
 // ✅ Helper to determine display currency
 const getDisplayCurrency = (countryCode) => {
-    return countryCode === 'IN' ? 'INR' : 'USD';
+    const currency = countryCode === 'IN' ? 'INR' : 'USD';
+    console.log(`[prerecorded.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
+    return currency;
 };
 
 // ✅ Helper to get price based on currency

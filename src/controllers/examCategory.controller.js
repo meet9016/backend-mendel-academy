@@ -46,13 +46,15 @@ const getUserCountryCode = async (reqOrIp) => {
     const countryCode = await getCountryFromIP(reqOrIp);
     const currency = countryCode === "IN" ? "INR" : "USD";
     const country = countryCode === "IN" ? "India" : "United States";
-    return {
+    const result = {
       country,
       countryCode,
       currency
     };
+    console.log(`[examCategory.controller -> getUserCountryCode] Resolved to:`, result);
+    return result;
   } catch (err) {
-    console.error("❌ IP detection error:", err);
+    console.error("❌ [examCategory.controller -> getUserCountryCode] IP detection error:", err);
     return {
       country: "United States",
       countryCode: "US",

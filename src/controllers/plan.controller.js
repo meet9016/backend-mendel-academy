@@ -83,7 +83,9 @@ const getAllPlans = {
 const getCountryFromIP = require('../utils/getCountryFromIP');
 
 const getUserCountryCode = async (reqOrIp) => {
-    return await getCountryFromIP(reqOrIp);
+    const code = await getCountryFromIP(reqOrIp);
+    console.log(`[plan.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
+    return code;
 };
 
 const getActivePlans = {
