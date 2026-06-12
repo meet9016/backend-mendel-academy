@@ -5,18 +5,11 @@ const { HyperSpecialist } = require('../../models');
 const { handlePagination } = require('../../utils/helper');
 const axios = require('axios');
 
-// ✅ IP-based currency detection (same as cart controller)
-const getUserCountryCode = async (ip) => {
-    try {
-        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-            return 'IN';
-        }
+const getCountryFromIP = require('../../utils/getCountryFromIP');
 
-        const response = await axios.get(`http://ip-api.com/json/${ip}`);
-        return response.data.countryCode || 'US';
-    } catch (err) {
-        return 'IN';
-    }
+// ✅ IP-based currency detection (same as cart controller)
+const getUserCountryCode = async (reqOrIp) => {
+    return await getCountryFromIP(reqOrIp);
 };
 
 const getDisplayCurrency = (countryCode) => {
@@ -63,8 +56,7 @@ const getAllHyperSpecialist = {
             const { status, search, page = 1, limit = 10 } = req.query;
 
             // Get user's IP and determine currency
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const query = {};
@@ -122,8 +114,7 @@ const getHyperSpecialistById = {
             const { _id } = req.params;
 
             // Get user's IP and determine currency
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const data = await HyperSpecialist.findById(_id).lean();

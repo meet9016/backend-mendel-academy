@@ -24,36 +24,21 @@ async function getCurrencyFromCountryCode(countryCode) {
     }
 }
 
-const getUserCountryCode = async (ip) => {
+const getCountryFromIP = require('../../utils/getCountryFromIP');
+
+const getUserCountryCode = async (reqOrIp) => {
     try {
-        // ✅ Handle localhost/development environment
-        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-            console.log('⚠️ Development environment detected. Using default India (IN) for testing.');
-            // 🔧 CHANGE THIS TO 'US' if you want to test USD in development
-            return {
-                country: "India",
-                countryCode: "IN",
-                currency: "INR"
-            };
-        }
-
-        const response = await axios.get(`http://ip-api.com/json/${ip}`);
-        const countryCode = response.data.countryCode;
-
-        console.log(`✅ Detected IP: ${ip}, Country: ${response.data.country}, Code: ${countryCode}`);
-
-        const currency = await getCurrencyFromCountryCode(countryCode);
-
+        const countryCode = await getCountryFromIP(reqOrIp);
+        const currency = countryCode === "IN" ? "INR" : "USD";
+        const country = countryCode === "IN" ? "India" : "United States";
         return {
-            country: response.data.country,
+            country,
             countryCode,
             currency
         };
-
     } catch (err) {
         console.error('❌ IP detection error:', err.message);
-        // Default to India for errors (you can change to US if preferred)
-        return { country: "India", countryCode: "IN", currency: "INR" };
+        return { country: "United States", countryCode: "US", currency: "USD" };
     }
 };
 
@@ -173,13 +158,7 @@ const getAllPreRecorded = {
         try {
             const { status, search } = req.query;
 
-            const ip =
-                req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-                req.socket.remoteAddress;
-
-            console.log('🔍 Incoming IP:', ip);
-
-            const user = await getUserCountryCode(ip);
+            const user = await getUserCountryCode(req);
 
             console.log('🌍 User Location:', user);
 
@@ -273,13 +252,7 @@ const getPreRecordedById = {
                 });
             }
 
-            const ip =
-                req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-                req.socket.remoteAddress;
-
-            console.log('🔍 Incoming IP (getById):', ip);
-
-            const user = await getUserCountryCode(ip);
+            const user = await getUserCountryCode(req);
 
             console.log('🌍 User Location (getById):', user);
 

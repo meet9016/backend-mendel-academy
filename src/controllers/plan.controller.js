@@ -80,23 +80,16 @@ const getAllPlans = {
     },
 };
 
-const getUserCountryCode = async (ip) => {
-    try {
-        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-            return 'IN';
-        }
+const getCountryFromIP = require('../utils/getCountryFromIP');
 
-        const response = await axios.get(`http://ip-api.com/json/${ip}`);
-        return response.data.countryCode || 'US';
-    } catch (err) {
-        return 'IN';
-    }
+const getUserCountryCode = async (reqOrIp) => {
+    return await getCountryFromIP(reqOrIp);
 };
 
 const getActivePlans = {
     handler: async (req, res) => {
         try {
-            const countryCode = await getUserCountryCode(req.ip);
+            const countryCode = await getUserCountryCode(req);
             const plans = countryCode === "IN" ? await Plans.find({ status: 'Active' }).select('-price_usd')
                 .sort({ sort_order: 1, createdAt: -1 }) : await Plans.find({ status: 'Active' }).select('-price_inr')
                     .sort({ sort_order: 1, createdAt: -1 });

@@ -39,42 +39,24 @@ async function getCurrencyFromCountryCode(countryCode) {
   }
 }
 
-const getUserCountryCode = async (ip) => {
+const getCountryFromIP = require("../utils/getCountryFromIP");
+
+const getUserCountryCode = async (reqOrIp) => {
   try {
-    console.log("🔍 Detecting IP:", ip); // Debug log
-
-    // ✅ For localhost/development, default to India
-    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-      console.log("✅ Localhost detected, defaulting to India");
-      return {
-        country: "India",
-        countryCode: "IN",
-        currency: "INR" // ✅ Changed from default currency lookup
-      };
-    }
-
-    // For production, use IP API
-    const response = await axios.get(`http://ip-api.com/json/${ip}`);
-    const countryCode = response.data.countryCode;
-
-    console.log("🌍 Country detected:", response.data.country, countryCode);
-
-    // ✅ Direct mapping instead of API call
+    const countryCode = await getCountryFromIP(reqOrIp);
     const currency = countryCode === "IN" ? "INR" : "USD";
-
+    const country = countryCode === "IN" ? "India" : "United States";
     return {
-      country: response.data.country,
+      country,
       countryCode,
       currency
     };
-
   } catch (err) {
     console.error("❌ IP detection error:", err);
-    // ✅ Default to India on error
     return {
-      country: "India",
-      countryCode: "IN",
-      currency: "INR"
+      country: "United States",
+      countryCode: "US",
+      currency: "USD"
     };
   }
 };
@@ -290,7 +272,7 @@ const getExamCategoryById = {
       console.log("📍 Request IP:", ip); // Debug log
 
       // Detect country + currency
-      const userInfo = await getUserCountryCode(ip);
+      const userInfo = await getUserCountryCode(req);
       console.log("💰 User Info:", userInfo); // Debug log
 
       const { _id } = req.params;

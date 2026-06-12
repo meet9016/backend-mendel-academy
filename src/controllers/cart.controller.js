@@ -5,17 +5,10 @@ const Joi = require('joi');
 const mongoose = require("mongoose");
 const axios = require('axios');
 
-const getUserCountryCode = async (ip) => {
-    try {
-        if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost' || ip.includes('::ffff:127.0.0.1')) {
-            return 'IN';
-        }
+const getCountryFromIP = require('../utils/getCountryFromIP');
 
-        const response = await axios.get(`http://ip-api.com/json/${ip}`);
-        return response.data.countryCode || 'US';
-    } catch (err) {
-        return 'IN';
-    }
+const getUserCountryCode = async (reqOrIp) => {
+    return await getCountryFromIP(reqOrIp);
 };
 
 const getDisplayCurrency = (countryCode) => {
@@ -48,7 +41,7 @@ const addToCart = {
             const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const product = await PreRecord.findById(product_id);
@@ -167,7 +160,7 @@ const addExamPlanToCart = {
             const { temp_id, user_id, exam_category_id, plan_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
@@ -335,7 +328,7 @@ const addHyperSpecialistToCart = {
             const { temp_id, user_id, hyperspecialist_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch hyperspecialist module
@@ -462,7 +455,7 @@ const addLiveCoursesToCart = {
             });
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch live course
@@ -659,7 +652,7 @@ const addRapidToolToCart = {
             const { temp_id, user_id, exam_category_id, tool_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
@@ -802,7 +795,7 @@ const addEliteMentorshipToCart = {
             const { temp_id, user_id, exam_category_id, mentorship_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
@@ -945,7 +938,7 @@ const addTsunamiToCart = {
             const { temp_id, user_id, exam_category_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch exam category
@@ -1087,7 +1080,7 @@ const addQbankPlanToCart = {
             const { temp_id, user_id, qbank_plan_id } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             // Fetch qbank plan
@@ -1212,7 +1205,7 @@ const getCart = {
             }
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
@@ -1337,7 +1330,7 @@ const getCheckoutPageTempId = {
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             let data = [];
@@ -1596,7 +1589,7 @@ const updateCartOptions = {
             const { cart_id, selected_options } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const cartItem = await Cart.findById(cart_id).populate('product_id');
@@ -1664,7 +1657,7 @@ const removeCartOption = {
             const { cart_id, option_type } = req.body;
 
             const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(ip);
+            const countryCode = await getUserCountryCode(req);
             const displayCurrency = getDisplayCurrency(countryCode);
 
             const cartItem = await Cart.findById(cart_id).populate('product_id');
