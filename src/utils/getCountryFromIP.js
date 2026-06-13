@@ -40,6 +40,12 @@ async function getCountryFromIP(reqOrIp) {
 
     if (reqOrIp && typeof reqOrIp === "object") {
       const req = reqOrIp;
+      
+      // 0. Use injected override from middleware if available
+      if (req.userCountry) {
+        return req.userCountry;
+      }
+
       // 1. Try proxy geo headers first
       countryCode =
         req.headers["cf-ipcountry"] ||

@@ -101,8 +101,10 @@ if (config.env === 'production') {
   app.use('/v1/auth', authLimiter);
 }
 
+const currencyMiddleware = require('./middlewares/currency.middleware');
+
 // V1 API routes
-app.use('/api/v1', routes);
+app.use('/api/v1', currencyMiddleware, routes);
 
 // Send back a 404 error for any unknown API request
 app.use((req, res, next) => {
