@@ -92,6 +92,7 @@ const getActivePlans = {
     handler: async (req, res) => {
         try {
             const countryCode = await getUserCountryCode(req);
+            const userCurrency = countryCode === "IN" ? "INR" : "USD";
             const plans = countryCode === "IN" ? await Plans.find({ status: 'Active' }).select('-price_usd')
                 .sort({ sort_order: 1, createdAt: -1 }) : await Plans.find({ status: 'Active' }).select('-price_inr')
                     .sort({ sort_order: 1, createdAt: -1 });
@@ -99,7 +100,8 @@ const getActivePlans = {
 
             return res.status(200).json({
                 success: true,
-                data: plans
+                data: plans,
+                user_currency: userCurrency
             });
         } catch (error) {
             logger.error('Error fetching active plans:', error);
