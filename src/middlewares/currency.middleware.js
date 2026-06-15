@@ -1,32 +1,12 @@
 const { getUserCurrencyFromReq } = require('../utils/currencyHelper');
 
-// Simple in-memory cache for IP context to prevent hitting ip-api.com repeatedly
-const ipContextCache = new Map();
-
 const currencyMiddleware = async (req, res, next) => {
   try {
-    const testIp = process.env.TEST_IP ? process.env.TEST_IP.split('#')[0].trim() : '';
-    const ip = testIp || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || req.ip || "unknown";
-
-    // 1. Check cache first
-    if (ipContextCache.has(ip)) {
-      const cached = ipContextCache.get(ip);
-      req.userCountry = cached.country;
-      req.userCurrency = cached.currency;
-    } else {
-      // 2. Fetch context
-      const { countryCode, currency } = await getUserCurrencyFromReq(req);
-      
-      req.userCountry = countryCode;
-      req.userCurrency = currency;
-
-      // Store in cache (limit size to prevent memory leaks)
-      if (ipContextCache.size > 1000) {
-        const firstKey = ipContextCache.keys().next().value;
-        ipContextCache.delete(firstKey);
-      }
-      ipContextCache.set(ip, { country: countryCode, currency });
-    }
+    // Fetch context instantly using geoip-lite or headers
+    const { countryCode, currency } = await getUserCurrencyFromReq(req);
+    
+    req.userCountry = countryCode;
+    req.userCurrency = currency;
 
     // 3. Intercept res.json
     const originalJson = res.json;
