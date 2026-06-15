@@ -66,8 +66,7 @@ async function getCountryFromIP(reqOrIp) {
 
     // 4. Skip lookup for localhost / loopback / private IPs
     if (!ip || isLocalIp(ip)) {
-
-      return 'US';
+      return 'IN';
     }
 
     // 5. MaxMind GeoLite2 local DB lookup (< 1 ms)
@@ -78,10 +77,10 @@ async function getCountryFromIP(reqOrIp) {
     }
 
 
-    return 'US';
+    return 'IN';
   } catch (err) {
 
-    return 'US';
+    return 'IN';
   }
 }
 

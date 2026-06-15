@@ -51,7 +51,7 @@ const getUserCurrencyFromReq = async (req) => {
         return { countryCode, currency };
     } catch (err) {
 
-        return { countryCode: 'US', currency: 'USD' };
+        return { countryCode: 'IN', currency: 'INR' };
     }
 };
 
@@ -72,7 +72,7 @@ const getUserCountryInfo = async (req) => {
         return result;
     } catch (err) {
 
-        return { country: 'United States', countryCode: 'US', currency: 'USD' };
+        return { country: 'India', countryCode: 'IN', currency: 'INR' };
     }
 };
 
