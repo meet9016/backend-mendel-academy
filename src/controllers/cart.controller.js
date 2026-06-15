@@ -3,25 +3,7 @@ const ApiError = require('../utils/ApiError');
 const { Cart, PreRecord, ExamCategory, HyperSpecialist, LiveCourses, Plans } = require('../models');
 const Joi = require('joi');
 const mongoose = require("mongoose");
-const axios = require('axios');
-
-const getCountryFromIP = require('../utils/getCountryFromIP');
-
-const getUserCountryCode = async (reqOrIp) => {
-    const code = await getCountryFromIP(reqOrIp);
-    console.log(`[cart.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
-    return code;
-};
-
-const getDisplayCurrency = (countryCode) => {
-    const currency = countryCode === 'IN' ? 'INR' : 'USD';
-    console.log(`[cart.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
-    return currency;
-};
-
-const getPriceForCurrency = (priceUsd, priceInr, currency) => {
-    return currency === 'INR' ? priceInr : priceUsd;
-};
+const { getUserCurrencyFromReq, getDisplayCurrency, getPriceForCurrency } = require('../utils/currencyHelper');
 
 // ✅ EXISTING: Add PreRecord product to cart
 const addToCart = {
@@ -44,9 +26,7 @@ const addToCart = {
         try {
             const { temp_id, user_id, product_id, selected_options, category_name, duration } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const product = await PreRecord.findById(product_id);
             if (!product) {
@@ -163,9 +143,7 @@ const addExamPlanToCart = {
         try {
             const { temp_id, user_id, exam_category_id, plan_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch exam category
             let examCategory;
@@ -331,9 +309,7 @@ const addHyperSpecialistToCart = {
         try {
             const { temp_id, user_id, hyperspecialist_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch hyperspecialist module
             const hyperspecialist = await HyperSpecialist.findById(hyperspecialist_id);
@@ -458,9 +434,7 @@ const addLiveCoursesToCart = {
                 livecourse_module_id
             });
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch live course
             const liveCourse = await LiveCourses.findById(livecourse_id);
@@ -655,9 +629,7 @@ const addRapidToolToCart = {
         try {
             const { temp_id, user_id, exam_category_id, tool_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch exam category
             let examCategory;
@@ -798,9 +770,7 @@ const addEliteMentorshipToCart = {
         try {
             const { temp_id, user_id, exam_category_id, mentorship_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch exam category
             let examCategory;
@@ -941,9 +911,7 @@ const addTsunamiToCart = {
         try {
             const { temp_id, user_id, exam_category_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch exam category
             let examCategory;
@@ -1083,9 +1051,7 @@ const addQbankPlanToCart = {
         try {
             const { temp_id, user_id, qbank_plan_id } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             // Fetch qbank plan
             const plan = await Plans.findById(qbank_plan_id);
@@ -1208,9 +1174,7 @@ const getCart = {
                 });
             }
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
@@ -1333,9 +1297,7 @@ const getCheckoutPageTempId = {
             const { temp_id } = req.params;
             const isObjectId = mongoose.Types.ObjectId.isValid(temp_id);
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             let data = [];
 
@@ -1592,9 +1554,7 @@ const updateCartOptions = {
         try {
             const { cart_id, selected_options } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const cartItem = await Cart.findById(cart_id).populate('product_id');
 
@@ -1660,9 +1620,7 @@ const removeCartOption = {
         try {
             const { cart_id, option_type } = req.body;
 
-            const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const cartItem = await Cart.findById(cart_id).populate('product_id');
 

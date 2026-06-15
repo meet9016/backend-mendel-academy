@@ -3,52 +3,7 @@ const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
 const { LiveCourses, PreRecord } = require('../../models');
 const { handlePagination, sortAndFormat } = require('../../utils/helper');
-const axios = require('axios');
-
-// ===== CURRENCY HELPER FUNCTIONS (Same as PreRecorded) =====
-async function getCurrencyFromCountryCode(countryCode) {
-    try {
-        const { data } = await axios.get(
-            `https://restcountries.com/v3.1/alpha/${countryCode}`
-        );
-
-        const currencies = data[0].currencies;
-        const currencyCode = Object.keys(currencies)[0];
-
-        return currencyCode;
-    } catch (err) {
-        console.error("Currency lookup failed:", err);
-        return "USD";
-    }
-}
-
-const getCountryFromIP = require('../../utils/getCountryFromIP');
-
-const getUserCountryCode = async (reqOrIp) => {
-    try {
-        const countryCode = await getCountryFromIP(reqOrIp);
-        const currency = countryCode === "IN" ? "INR" : "USD";
-        const country = countryCode === "IN" ? "India" : "United States";
-        const result = { country, countryCode, currency };
-        console.log(`[livecourses.controller -> getUserCountryCode] Resolved to:`, result);
-        return result;
-    } catch (err) {
-        console.error('❌ [livecourses.controller -> getUserCountryCode] IP detection error:', err.message);
-        return { country: "United States", countryCode: "US", currency: "USD" };
-    }
-};
-
-// ✅ Helper to determine display currency
-const getDisplayCurrency = (countryCode) => {
-    const currency = countryCode === 'IN' ? 'INR' : 'USD';
-    console.log(`[livecourses.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
-    return currency;
-};
-
-// ✅ Helper to get price based on currency
-const getPriceForCurrency = (priceUsd, priceInr, currency) => {
-    return currency === 'INR' ? priceInr : priceUsd;
-};
+const { getUserCountryInfo, getDisplayCurrency, getPriceForCurrency } = require('../../utils/currencyHelper');
 
 // ===== VALIDATION SCHEMAS =====
 const planSchema = Joi.object({
@@ -127,7 +82,7 @@ const getAllCourses = {
         try {
             const { status, search } = req.query;
 
-            const user = await getUserCountryCode(req);
+            const user = await getUserCountryInfo(req);
             console.log('🌍 User Location:', user);
 
             const displayCurrency = getDisplayCurrency(user.countryCode);
@@ -207,7 +162,7 @@ const getAllCourses = {
 const getAllLiveCourses = {
     handler: async (req, res) => {
         try {
-            const user = await getUserCountryCode(req);
+            const user = await getUserCountryInfo(req);
             const displayCurrency = getDisplayCurrency(user.countryCode);
 
             const courses = await LiveCourses.find({ status: "live" })
@@ -267,7 +222,7 @@ const getLiveCoursesById = {
                 });
             }
 
-            const user = await getUserCountryCode(req);
+            const user = await getUserCountryInfo(req);
             const displayCurrency = getDisplayCurrency(user.countryCode);
 
             const course = await LiveCourses.findById(_id);

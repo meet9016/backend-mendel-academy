@@ -4,64 +4,8 @@ const Joi = require("joi");
 const { ExamCategory, SubjectInfo } = require("../models");
 const { handlePagination } = require("../utils/helper");
 const { ObjectId } = require("mongoose").Types;
-const axios = require("axios");
-const { getLiveRates } = require("../utils/exchangeRates.js");
+const { getUserCountryInfo } = require("../utils/currencyHelper");
 const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require("../utils/fileUpload");
-
-// async function getLiveRates() {
-//   try {
-//     const { data } = await axios.get("https://open.er-api.com/v6/latest/USD");
-//     return data.rates;  // returns dynamic rates
-//   } catch (err) {
-//     console.error("Currency API Error:", err);
-//     return {
-//       USD: 1,
-//       INR: 83,
-//       GBP: 0.79,
-//       EUR: 0.92,
-//     }; // fallback
-//   }
-// }
-
-async function getCurrencyFromCountryCode(countryCode) {
-  try {
-    const { data } = await axios.get(
-      `https://restcountries.com/v3.1/alpha/${countryCode}`
-    );
-
-    const currencies = data[0].currencies;
-    const currencyCode = Object.keys(currencies)[0]; // e.g. CAD, USD, INR
-
-    return currencyCode;
-  } catch (err) {
-    console.error("Currency lookup failed:", err);
-    return "USD"; // fallback
-  }
-}
-
-const getCountryFromIP = require("../utils/getCountryFromIP");
-
-const getUserCountryCode = async (reqOrIp) => {
-  try {
-    const countryCode = await getCountryFromIP(reqOrIp);
-    const currency = countryCode === "IN" ? "INR" : "USD";
-    const country = countryCode === "IN" ? "India" : "United States";
-    const result = {
-      country,
-      countryCode,
-      currency
-    };
-    console.log(`[examCategory.controller -> getUserCountryCode] Resolved to:`, result);
-    return result;
-  } catch (err) {
-    console.error("❌ [examCategory.controller -> getUserCountryCode] IP detection error:", err);
-    return {
-      country: "United States",
-      countryCode: "US",
-      currency: "USD"
-    };
-  }
-};
 
 const createExamCategory = {
   validation: {
@@ -274,7 +218,7 @@ const getExamCategoryById = {
       console.log("📍 Request IP:", ip); // Debug log
 
       // Detect country + currency
-      const userInfo = await getUserCountryCode(req);
+      const userInfo = await getUserCountryInfo(req);
       console.log("💰 User Info:", userInfo); // Debug log
 
       const { _id } = req.params;

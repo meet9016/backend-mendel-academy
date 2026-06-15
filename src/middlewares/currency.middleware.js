@@ -1,12 +1,12 @@
-const getCountryFromIP = require('../utils/getCountryFromIP');
-const { getCurrencyFromCountry } = require('../utils/currency');
+const { getUserCurrencyFromReq } = require('../utils/currencyHelper');
 
 // Simple in-memory cache for IP context to prevent hitting ip-api.com repeatedly
 const ipContextCache = new Map();
 
 const currencyMiddleware = async (req, res, next) => {
   try {
-    const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || req.ip || "unknown";
+    const testIp = process.env.TEST_IP ? process.env.TEST_IP.split('#')[0].trim() : '';
+    const ip = testIp || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || req.ip || "unknown";
 
     // 1. Check cache first
     if (ipContextCache.has(ip)) {
@@ -14,23 +14,9 @@ const currencyMiddleware = async (req, res, next) => {
       req.userCountry = cached.country;
       req.userCurrency = cached.currency;
     } else {
-      // ==========================================
-      // 🛠️ TESTING OVERRIDE
-      // Change this to "US", "IN", "GB", etc. to test frontend changes.
-      // Set to null to use actual IP detection.
-      const TEST_COUNTRY_CODE = "IN"; // <-- CHANGE THIS FOR TESTING
-      // ==========================================
-
       // 2. Fetch context
-      const countryCode =  await getCountryFromIP(req);
-      let currency = "USD";
-
-      if (countryCode === "IN" || countryCode === "INDIA") {
-        currency = "INR";
-      } else {
-        currency = (await getCurrencyFromCountry(countryCode)).toUpperCase();
-      }
-
+      const { countryCode, currency } = await getUserCurrencyFromReq(req);
+      
       req.userCountry = countryCode;
       req.userCurrency = currency;
 

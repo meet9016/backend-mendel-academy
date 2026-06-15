@@ -13,9 +13,8 @@ const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const Stripe = require("stripe");
 const { handlePagination } = require("../utils/helper");
-const { getLiveRates } = require("../utils/exchangeRates");
-const { getCurrencyFromCountry } = require("../utils/currency");
-const getCountryFromIP = require("../utils/getCountryFromIP");
+
+const { getUserCurrencyFromReq } = require("../utils/currencyHelper");
 const Cart = require("../models/cart.model");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const ExcelJS = require("exceljs");
@@ -101,19 +100,11 @@ const createPayment = {
 
       // 1️⃣ Detect country if currency not sent
       let finalCurrency = currency;
-      console.log(`[Razorpay Payment] Initial currency in body: "${currency}"`);
+
 
       if (!finalCurrency) {
-        const ip =
-          req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-          req.socket.remoteAddress;
-        console.log(`[Razorpay Payment] Extracted IP: "${ip}"`);
-        const userCountry = await getCountryFromIP(ip);
-        console.log(`[Razorpay Payment] Detected country code from IP: "${userCountry}"`);
-        finalCurrency = (
-          await getCurrencyFromCountry(userCountry)
-        ).toUpperCase();
-        console.log(`[Razorpay Payment] Resolved country "${userCountry}" to currency: "${finalCurrency}"`);
+        finalCurrency = (await getUserCurrencyFromReq(req)).currency;
+
       }
 
       // ⚠ Razorpay supports a limited set of currencies
@@ -419,38 +410,26 @@ const createStripePaymentIntent = {
       }
 
       let finalCurrency = currency;
-      console.log(`[Stripe Payment] Initial currency in body: "${currency}"`);
+
 
       if (!finalCurrency) {
         if (!country) {
-          const ip =
-            req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-            req.socket.remoteAddress;
-          console.log(`[Stripe Payment] Extracted IP: "${ip}"`);
-          const countryCode = await getCountryFromIP(ip);
-          console.log(`[Stripe Payment] Detected country code from IP: "${countryCode}"`);
-          if (countryCode === "IN") {
-            finalCurrency = "INR";
-            console.log(`[Stripe Payment] Country is India. Currency set to INR`);
-          } else {
-            finalCurrency = (await getCurrencyFromCountry(countryCode)).toUpperCase();
-            console.log(`[Stripe Payment] Country is non-India ("${countryCode}"). Resolved currency: "${finalCurrency}"`);
-          }
+          finalCurrency = (await getUserCurrencyFromReq(req)).currency;
+
         } else {
           const upperCountry = String(country).toUpperCase();
-          console.log(`[Stripe Payment] Country provided in request: "${country}"`);
+
           if (upperCountry === "IN" || upperCountry === "INDIA") {
             finalCurrency = "INR";
-            console.log(`[Stripe Payment] Provided country is India. Currency set to INR`);
           } else {
-            finalCurrency = (await getCurrencyFromCountry(country)).toUpperCase();
-            console.log(`[Stripe Payment] Provided country is non-India. Resolved currency: "${finalCurrency}"`);
+            finalCurrency = "USD";
           }
+
         }
       }
 
       finalCurrency = (finalCurrency || "USD").toUpperCase();
-      console.log(`[Stripe Payment] Final determined currency: "${finalCurrency}"`);
+
 
       const stripeAmount = Math.round(amount * 100);
 

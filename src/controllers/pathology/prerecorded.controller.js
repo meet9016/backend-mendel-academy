@@ -3,54 +3,8 @@ const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
 const { PreRecord } = require('../../models');
 const { handlePagination } = require('../../utils/helper');
-const { getLiveRates } = require('../../utils/exchangeRates.js');
 const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require('../../utils/fileUpload');
-const axios = require('axios');
-
-// Helper function to get user's country and currency
-async function getCurrencyFromCountryCode(countryCode) {
-    try {
-        const { data } = await axios.get(
-            `https://restcountries.com/v3.1/alpha/${countryCode}`
-        );
-
-        const currencies = data[0].currencies;
-        const currencyCode = Object.keys(currencies)[0];
-
-        return currencyCode;
-    } catch (err) {
-        console.error("Currency lookup failed:", err);
-        return "USD";
-    }
-}
-
-const getCountryFromIP = require('../../utils/getCountryFromIP');
-
-const getUserCountryCode = async (reqOrIp) => {
-    try {
-        const countryCode = await getCountryFromIP(reqOrIp);
-        const currency = countryCode === "IN" ? "INR" : "USD";
-        const country = countryCode === "IN" ? "India" : "United States";
-        const result = { country, countryCode, currency };
-        console.log(`[prerecorded.controller -> getUserCountryCode] Resolved to:`, result);
-        return result;
-    } catch (err) {
-        console.error('❌ [prerecorded.controller -> getUserCountryCode] IP detection error:', err.message);
-        return { country: "United States", countryCode: "US", currency: "USD" };
-    }
-};
-
-// ✅ Helper to determine display currency
-const getDisplayCurrency = (countryCode) => {
-    const currency = countryCode === 'IN' ? 'INR' : 'USD';
-    console.log(`[prerecorded.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
-    return currency;
-};
-
-// ✅ Helper to get price based on currency
-const getPriceForCurrency = (priceUsd, priceInr, currency) => {
-    return currency === 'INR' ? priceInr : priceUsd;
-};
+const { getUserCountryInfo, getDisplayCurrency, getPriceForCurrency } = require('../../utils/currencyHelper');
 
 // Validation schema for options
 const optionSchema = Joi.object({
@@ -158,7 +112,7 @@ const getAllPreRecorded = {
         try {
             const { status, search } = req.query;
 
-            const user = await getUserCountryCode(req);
+            const user = await getUserCountryInfo(req);
 
             console.log('🌍 User Location:', user);
 
@@ -252,7 +206,7 @@ const getPreRecordedById = {
                 });
             }
 
-            const user = await getUserCountryCode(req);
+            const user = await getUserCountryInfo(req);
 
             console.log('🌍 User Location (getById):', user);
 

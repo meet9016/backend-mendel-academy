@@ -80,19 +80,12 @@ const getAllPlans = {
     },
 };
 
-const getCountryFromIP = require('../utils/getCountryFromIP');
-
-const getUserCountryCode = async (reqOrIp) => {
-    const code = await getCountryFromIP(reqOrIp);
-    console.log(`[plan.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
-    return code;
-};
+const { getUserCountryInfo } = require('../utils/currencyHelper');
 
 const getActivePlans = {
     handler: async (req, res) => {
         try {
-            const countryCode = await getUserCountryCode(req);
-            const userCurrency = countryCode === "IN" ? "INR" : "USD";
+            const { countryCode, currency: userCurrency } = await getUserCountryInfo(req);
             const plans = countryCode === "IN" ? await Plans.find({ status: 'Active' }).select('-price_usd')
                 .sort({ sort_order: 1, createdAt: -1 }) : await Plans.find({ status: 'Active' }).select('-price_inr')
                     .sort({ sort_order: 1, createdAt: -1 });

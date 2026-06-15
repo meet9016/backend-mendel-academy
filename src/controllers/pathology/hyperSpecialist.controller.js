@@ -3,26 +3,7 @@ const ApiError = require('../../utils/ApiError');
 const Joi = require('joi');
 const { HyperSpecialist } = require('../../models');
 const { handlePagination } = require('../../utils/helper');
-const axios = require('axios');
-
-const getCountryFromIP = require('../../utils/getCountryFromIP');
-
-// ✅ IP-based currency detection (same as cart controller)
-const getUserCountryCode = async (reqOrIp) => {
-    const code = await getCountryFromIP(reqOrIp);
-    console.log(`[hyperSpecialist.controller -> getUserCountryCode] Resolved to countryCode: "${code}"`);
-    return code;
-};
-
-const getDisplayCurrency = (countryCode) => {
-    const currency = countryCode === 'IN' ? 'INR' : 'USD';
-    console.log(`[hyperSpecialist.controller -> getDisplayCurrency] countryCode: "${countryCode}" -> currency: "${currency}"`);
-    return currency;
-};
-
-const getPriceForCurrency = (priceUsd, priceInr, currency) => {
-    return currency === 'INR' ? priceInr : priceUsd;
-};
+const { getUserCurrencyFromReq, getDisplayCurrency, getPriceForCurrency } = require('../../utils/currencyHelper');
 
 const createHyperSpecialist = {
     validation: {
@@ -60,8 +41,7 @@ const getAllHyperSpecialist = {
             const { status, search, page = 1, limit = 10 } = req.query;
 
             // Get user's IP and determine currency
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const query = {};
 
@@ -118,8 +98,7 @@ const getHyperSpecialistById = {
             const { _id } = req.params;
 
             // Get user's IP and determine currency
-            const countryCode = await getUserCountryCode(req);
-            const displayCurrency = getDisplayCurrency(countryCode);
+            const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
             const data = await HyperSpecialist.findById(_id).lean();
 

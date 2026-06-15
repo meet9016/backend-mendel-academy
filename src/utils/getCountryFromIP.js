@@ -1,120 +1,106 @@
-const axios = require("axios");
+const geoip = require('geoip-lite');
 
-// Helper to check if an IP is loopback or private network range
-const isLocalIp = (ipAddress) => {
-  if (!ipAddress) return true;
-  const cleaned = ipAddress.trim();
-  return (
-    cleaned === "::1" ||
-    cleaned === "127.0.0.1" ||
-    cleaned === "localhost" ||
-    cleaned.startsWith("127.") ||
-    cleaned.startsWith("192.168.") ||
-    cleaned.startsWith("10.") ||
-    cleaned.startsWith("172.16.") ||
-    cleaned.startsWith("172.17.") ||
-    cleaned.startsWith("172.18.") ||
-    cleaned.startsWith("172.19.") ||
-    cleaned.startsWith("172.20.") ||
-    cleaned.startsWith("172.21.") ||
-    cleaned.startsWith("172.22.") ||
-    cleaned.startsWith("172.23.") ||
-    cleaned.startsWith("172.24.") ||
-    cleaned.startsWith("172.25.") ||
-    cleaned.startsWith("172.26.") ||
-    cleaned.startsWith("172.27.") ||
-    cleaned.startsWith("172.28.") ||
-    cleaned.startsWith("172.29.") ||
-    cleaned.startsWith("172.30.") ||
-    cleaned.startsWith("172.31.") ||
-    cleaned.includes("::ffff:127.0.0.1") ||
-    cleaned.startsWith("fe80:")
-  );
-};
-
+/**
+ * Detect the user's 2-letter ISO country code from their IP address.
+ *
+ * Priority chain:
+ *   1. req.userCountry  — injected by middleware (if any)
+ *   2. CDN proxy headers — cf-ipcountry, x-vercel-ip-country, cloudfront-viewer-country
+ *   3. process.env.TEST_IP override (dev only)
+ *   4. geoip-lite local DB lookup (MaxMind GeoLite2, <1 ms)
+ *   5. Fallback: "US"
+ *
+ * @param {object|string} reqOrIp  Express req object, or raw IP string
+ * @returns {string} 2-letter ISO country code  e.g. "IN", "US", "GB"
+ */
 async function getCountryFromIP(reqOrIp) {
-  // console.log(`[getCountryFromIP] Called with reqOrIp type: ${typeof reqOrIp}`);
   try {
-    let ip = "";
-    let countryCode = "";
+    let ip = '';
 
-    if (reqOrIp && typeof reqOrIp === "object") {
+    // ── Handle Express request object ──────────────────────────
+    if (reqOrIp && typeof reqOrIp === 'object') {
       const req = reqOrIp;
-      
-      // 0. Use injected override from middleware if available
+
+      // 1. Middleware-injected override
       if (req.userCountry) {
+
         return req.userCountry;
       }
 
-      // 1. Try proxy geo headers first
-      countryCode =
-        req.headers["cf-ipcountry"] ||
-        req.headers["x-vercel-ip-country"] ||
-        req.headers["cloudfront-viewer-country"] ||
-        req.headers["x-country-code"] ||
-        req.headers["x-real-ip-country"];
+      // 2. CDN / reverse-proxy geo headers
+      const headerCountry =
+        req.headers['cf-ipcountry'] ||
+        req.headers['x-vercel-ip-country'] ||
+        req.headers['cloudfront-viewer-country'] ||
+        req.headers['x-country-code'] ||
+        req.headers['x-real-ip-country'];
 
-      // Commented out to prevent printing massive request objects
-      // console.log(req,"req???????")
-      if (countryCode && countryCode.trim().toUpperCase() !== "XX") {
-        const cleanedCode = countryCode.trim().toUpperCase();
-        // console.log(`[getCountryFromIP] Detected country code from proxy headers: "${cleanedCode}"`);
-        return cleanedCode;
+      if (headerCountry && headerCountry.trim().toUpperCase() !== 'XX') {
+        const code = headerCountry.trim().toUpperCase();
+
+        return code;
       }
 
-      // Extract IP for fallback
+      // 3. Extract IP — TEST_IP takes priority for dev testing
+      // let testIp = process.env.TEST_IP || '';
+      // if (testIp) testIp = testIp.split('#')[0].trim();
+
       ip =
-        process.env.TEST_IP ||
-        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        // testIp ||
+        req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
         req.socket?.remoteAddress ||
         req.ip ||
-        "";
-      // console.log(`[getCountryFromIP] No proxy geo headers. Extracted IP for fallback: "${ip}"`);
-    } else if (typeof reqOrIp === "string") {
+        '';
+    } else if (typeof reqOrIp === 'string') {
       ip = reqOrIp;
-      // console.log(`[getCountryFromIP] String input received as IP: "${ip}"`);
     }
 
-    // Clean up IP
+    // Clean up
     if (ip) {
       ip = ip.trim();
+      // Strip IPv6-mapped-IPv4 prefix  "::ffff:1.2.3.4" → "1.2.3.4"
+      if (ip.startsWith('::ffff:')) {
+        ip = ip.slice(7);
+      }
     }
 
-    // 2. Check for local/dev environment
-    if (
-      !ip ||
-      ip === "::1" ||
-      ip === "127.0.0.1" ||
-      ip === "localhost" ||
-      ip.includes("::ffff:127.0.0.1")
-    ) {
-      console.log(`[getCountryFromIP] Local/Dev IP detected: "${ip}". Defaulting to "IN"`);
-      return "IN";
+    // 4. Skip lookup for localhost / loopback / private IPs
+    if (!ip || isLocalIp(ip)) {
+
+      return 'US';
     }
 
-    // 3. Fallback to IP API (HTTP request)
-    // If local/loopback IP, query without suffix to get the host's own public IP location
-    const isLocal = isLocalIp(ip);
-    const url = isLocal ? "http://ip-api.com/json/" : `http://ip-api.com/json/${ip}`;
+    // 5. MaxMind GeoLite2 local DB lookup (< 1 ms)
+    const geo = geoip.lookup(ip);
+    if (geo && geo.country) {
 
-    // console.log(`[getCountryFromIP] Querying IP API: ${url}`);
-    const res = await axios.get(url, { timeout: 3000 });
-    if (res.data && res.data.countryCode) {
-      const apiCode = res.data.countryCode.toUpperCase();
-      // console.log(`[getCountryFromIP] IP API resolved "${ip}" to: "${apiCode}"`);
-      return apiCode;
+      return geo.country.toUpperCase();
     }
 
-    // If API didn't resolve countryCode, fall back based on server/host timezone
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isHostIndia = tz === "Asia/Kolkata" || tz === "Asia/Calcutta";
-    return isHostIndia ? "IN" : "US";
+
+    return 'US';
   } catch (err) {
-    // Default fallback on error: check server/host timezone so local Indian developer gets INR
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isHostIndia = tz === "Asia/Kolkata" || tz === "Asia/Calcutta";
-    return isHostIndia ? "IN" : "US";
+
+    return 'US';
   }
+}
+
+/**
+ * Check if an IP address is loopback or private-network.
+ */
+function isLocalIp(ipAddress) {
+  if (!ipAddress) return true;
+  const ip = ipAddress.trim();
+  return (
+    ip === '::1' ||
+    ip === '127.0.0.1' ||
+    ip === 'localhost' ||
+    ip.startsWith('127.') ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('10.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+    ip.startsWith('fe80:')
+  );
 }
 
 module.exports = getCountryFromIP;
