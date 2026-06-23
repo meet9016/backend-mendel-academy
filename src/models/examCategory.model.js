@@ -128,6 +128,72 @@ const examListSchema = mongoose.Schema(
     who_can_enroll_title: { type: String, trim: true },
     who_can_enroll_description: { type: String, trim: true },
     who_can_enroll_image: { type: String, trim: true },
+    galaxy_app_section: {
+      section_label: { type: String, trim: true },
+      section_title: { type: String, trim: true },
+      section_description: { type: String, trim: true },
+      tools: [{
+        tool_name: { type: String, trim: true },
+        section_subtitle: { type: String, trim: true },
+        bottom_text: { type: String, trim: true },
+        video_link: { type: String, trim: true },
+        iphone_video: {
+          title: { type: String, trim: true },
+          link: { type: String, trim: true },
+        },
+        ipad_video: {
+          title: { type: String, trim: true },
+          link: { type: String, trim: true },
+        },
+        desktop_video: {
+          title: { type: String, trim: true },
+          link: { type: String, trim: true },
+        },
+        tagline: { type: String, trim: true },
+        description: { type: String, trim: true },
+        included_points: [{ type: String, trim: true }],
+        sample_question_badge: { type: String, trim: true },
+        sample_question_text: { type: String, trim: true },
+        sample_question_options: [{
+          text: { type: String, trim: true },
+          is_correct: { type: Boolean, default: false },
+        }],
+        sample_questions: [{
+          badge: { type: String, trim: true },
+          question: { type: String, trim: true },
+          options: [{
+            text: { type: String, trim: true },
+            is_correct: { type: Boolean, default: false },
+          }]
+        }],
+        flashcard_qa: [{
+          question: { type: String, trim: true },
+          answer: { type: String, trim: true },
+        }],
+        individual_price: { type: String, trim: true },
+        individual_per: { type: String, trim: true },
+        galaxy_price: { type: String, trim: true },
+        galaxy_per: { type: String, trim: true },
+        sample_image: { type: String, trim: true },
+        cards: [{
+          badge: { type: String, trim: true },
+          title: { type: String, trim: true },
+          image: { type: String, trim: true },
+          card_type: { type: String, trim: true },
+          options: [{
+            text: { type: String, trim: true },
+            is_correct: { type: Boolean, default: false },
+          }],
+        }],
+      }],
+    },
+    sample_recorded_lectures: [{
+      title: { type: String, trim: true },
+      video_link: { type: String, trim: true },
+      subject: { type: String, trim: true },
+      strip_left: { type: String, trim: true },
+      strip_right: { type: String, trim: true },
+    }],
   },
   {
     timestamps: true,

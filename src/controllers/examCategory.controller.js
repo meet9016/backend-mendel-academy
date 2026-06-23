@@ -7,6 +7,111 @@ const { ObjectId } = require("mongoose").Types;
 const { getUserCountryInfo } = require("../utils/currencyHelper");
 const { uploadToExternalService, updateFileOnExternalService, deleteFileFromExternalService } = require("../utils/fileUpload");
 
+const getFileByField = (files, fieldname) => {
+  if (!files) return null;
+  if (Array.isArray(files)) {
+    return files.find((f) => f.fieldname === fieldname) || null;
+  }
+  return files[fieldname]?.[0] || null;
+};
+
+const galaxyAppSectionSchema = Joi.object({
+  section_label: Joi.string().trim().optional().allow(null, ''),
+  section_title: Joi.string().trim().optional().allow(null, ''),
+  section_description: Joi.string().trim().optional().allow(null, ''),
+  tools: Joi.array().items(
+    Joi.object({
+      tool_name: Joi.string().trim().optional().allow(null, ''),
+      section_subtitle: Joi.string().trim().optional().allow(null, ''),
+      bottom_text: Joi.string().trim().optional().allow(null, ''),
+      video_link: Joi.string().trim().optional().allow(null, ''),
+      iphone_video: Joi.object({
+        title: Joi.string().trim().optional().allow(null, ''),
+        link: Joi.string().trim().optional().allow(null, ''),
+      }).optional(),
+      ipad_video: Joi.object({
+        title: Joi.string().trim().optional().allow(null, ''),
+        link: Joi.string().trim().optional().allow(null, ''),
+      }).optional(),
+      desktop_video: Joi.object({
+        title: Joi.string().trim().optional().allow(null, ''),
+        link: Joi.string().trim().optional().allow(null, ''),
+      }).optional(),
+      tagline: Joi.string().trim().optional().allow(null, ''),
+      description: Joi.string().trim().optional().allow(null, ''),
+      included_points: Joi.array().items(Joi.string().trim()).optional(),
+      sample_question_badge: Joi.string().trim().optional().allow(null, ''),
+      sample_question_text: Joi.string().trim().optional().allow(null, ''),
+      sample_question_options: Joi.array().items(
+        Joi.object({
+          text: Joi.string().trim().optional().allow(null, ''),
+          is_correct: Joi.boolean().optional(),
+        })
+      ).optional(),
+      sample_questions: Joi.array().items(
+        Joi.object({
+          badge: Joi.string().trim().optional().allow(null, ''),
+          question: Joi.string().trim().optional().allow(null, ''),
+          options: Joi.array().items(
+            Joi.object({
+              text: Joi.string().trim().optional().allow(null, ''),
+              is_correct: Joi.boolean().optional(),
+            })
+          ).optional(),
+        })
+      ).optional(),
+      individual_price: Joi.string().trim().optional().allow(null, ''),
+      individual_per: Joi.string().trim().optional().allow(null, ''),
+      galaxy_price: Joi.string().trim().optional().allow(null, ''),
+      galaxy_per: Joi.string().trim().optional().allow(null, ''),
+      sample_image: Joi.string().trim().optional().allow(null, ''),
+      cards: Joi.array().items(
+        Joi.object({
+          badge: Joi.string().trim().optional().allow(null, ''),
+          title: Joi.string().trim().optional().allow(null, ''),
+          image: Joi.string().trim().optional().allow(null, ''),
+          card_type: Joi.string().trim().optional().allow(null, ''),
+          options: Joi.array().items(
+            Joi.object({
+              text: Joi.string().trim().optional().allow(null, ''),
+              is_correct: Joi.boolean().optional(),
+            })
+          ).optional(),
+        })
+      ).optional(),
+    })
+  ).optional(),
+}).optional();
+
+const processGalaxyAppSectionImages = async (galaxySection, files) => {
+  if (!galaxySection?.tools || !Array.isArray(files)) return galaxySection;
+
+  for (const file of files) {
+    if (file.fieldname.startsWith('galaxy_card_image_')) {
+      const parts = file.fieldname.replace('galaxy_card_image_', '').split('_');
+      const toolIndex = parseInt(parts[0], 10);
+      const cardIndex = parseInt(parts[1], 10);
+      if (
+        !isNaN(toolIndex) &&
+        !isNaN(cardIndex) &&
+        galaxySection.tools[toolIndex]?.cards?.[cardIndex]
+      ) {
+        const imageUrl = await uploadToExternalService(file, 'galaxy-app-cards');
+        galaxySection.tools[toolIndex].cards[cardIndex].image = imageUrl;
+      }
+    }
+    if (file.fieldname.startsWith('galaxy_tool_sample_image_')) {
+      const toolIndex = parseInt(file.fieldname.replace('galaxy_tool_sample_image_', ''), 10);
+      if (!isNaN(toolIndex) && galaxySection.tools[toolIndex]) {
+        const imageUrl = await uploadToExternalService(file, 'galaxy-app-tools');
+        galaxySection.tools[toolIndex].sample_image = imageUrl;
+      }
+    }
+  }
+
+  return galaxySection;
+};
+
 const createExamCategory = {
   validation: {
     body: Joi.object().keys({
@@ -66,6 +171,22 @@ const createExamCategory = {
       who_can_enroll_title: Joi.string().trim().required(),
       who_can_enroll_description: Joi.string().trim().required(),
       who_can_enroll_image: Joi.string().optional(),
+      galaxy_app_section: Joi.alternatives().try(
+        galaxyAppSectionSchema,
+        Joi.string().allow(null, '')
+      ).optional(),
+      sample_recorded_lectures: Joi.alternatives().try(
+        Joi.array().items(
+          Joi.object({
+            title: Joi.string().trim().optional().allow(null, ''),
+            video_link: Joi.string().trim().optional().allow(null, ''),
+            subject: Joi.string().trim().optional().allow(null, ''),
+            strip_left: Joi.string().trim().optional().allow(null, ''),
+            strip_right: Joi.string().trim().optional().allow(null, ''),
+          })
+        ),
+        Joi.string().allow(null, '')
+      ).optional(),
     }),
   },
 
@@ -73,6 +194,7 @@ const createExamCategory = {
     try {
       const { category_name, exams, choose_plan_list, rapid_learning_tools, elite_mentorship, plan_section_title, mentorship_tsunami_section_title, rapid_tools_section_title, tsunami, who_can_enroll_title,
         who_can_enroll_description,
+        sample_recorded_lectures,
       } = req.body;
 
       // Validate that only 1 plan has most_popular = true
@@ -121,6 +243,15 @@ const createExamCategory = {
         }
       }
 
+      let parsedLectures = [];
+      if (sample_recorded_lectures) {
+        try {
+          parsedLectures = typeof sample_recorded_lectures === 'string' ? JSON.parse(sample_recorded_lectures) : sample_recorded_lectures;
+        } catch (e) {
+          parsedLectures = [];
+        }
+      }
+
       // Create new category
       const newCategory = await ExamCategory.create({
         category_name,
@@ -135,6 +266,7 @@ const createExamCategory = {
         plan_section_title,
         mentorship_tsunami_section_title,
         rapid_tools_section_title,
+        sample_recorded_lectures: parsedLectures,
       });
 
       return res.status(201).json({
@@ -420,6 +552,23 @@ const updateExamCategory = {
       who_can_enroll_title: Joi.string().trim().optional(),
       who_can_enroll_description: Joi.string().trim().optional(),
       who_can_enroll_image: Joi.string().trim().optional(),
+      galaxy_app_section: Joi.alternatives().try(
+        galaxyAppSectionSchema,
+        Joi.string().allow(null, '')
+      ).optional(),
+      sample_recorded_lectures: Joi.alternatives().try(
+        Joi.array().items(
+          Joi.object({
+            _id: Joi.string().optional(),
+            title: Joi.string().trim().optional().allow(null, ''),
+            video_link: Joi.string().trim().optional().allow(null, ''),
+            subject: Joi.string().trim().optional().allow(null, ''),
+            strip_left: Joi.string().trim().optional().allow(null, ''),
+            strip_right: Joi.string().trim().optional().allow(null, ''),
+          })
+        ),
+        Joi.string().allow(null, '')
+      ).optional(),
     }),
   },
 
@@ -441,6 +590,8 @@ const updateExamCategory = {
         who_can_enroll_title,
         who_can_enroll_description,
         who_can_enroll_image,
+        galaxy_app_section,
+        sample_recorded_lectures,
       } = req.body;
 
       const existingCategory = await ExamCategory.findById(_id);
@@ -484,11 +635,12 @@ const updateExamCategory = {
             existingExam.description = exam.description || existingExam.description;
             existingExam.status = exam.status || existingExam.status;
 
-            if (req.files && req.files.image && req.files.image[0]) {
+            if (getFileByField(req.files, 'image')) {
+              const imageFile = getFileByField(req.files, 'image');
               if (existingExam.image) {
-                existingExam.image = await updateFileOnExternalService(existingExam.image, req.files.image[0]);
+                existingExam.image = await updateFileOnExternalService(existingExam.image, imageFile);
               } else {
-                existingExam.image = await uploadToExternalService(req.files.image[0], 'exam-category');
+                existingExam.image = await uploadToExternalService(imageFile, 'exam-category');
               }
             } else if (exam.image !== undefined) {
               existingExam.image = exam.image;
@@ -612,14 +764,48 @@ const updateExamCategory = {
       if (who_can_enroll_title !== undefined) existingCategory.who_can_enroll_title = who_can_enroll_title;
       if (who_can_enroll_description !== undefined) existingCategory.who_can_enroll_description = who_can_enroll_description;
 
-      if (req.files && req.files.who_can_enroll_image && req.files.who_can_enroll_image[0]) {
+      const enrollImageFile = getFileByField(req.files, 'who_can_enroll_image');
+      if (enrollImageFile) {
         if (existingCategory.who_can_enroll_image) {
-          existingCategory.who_can_enroll_image = await updateFileOnExternalService(existingCategory.who_can_enroll_image, req.files.who_can_enroll_image[0]);
+          existingCategory.who_can_enroll_image = await updateFileOnExternalService(existingCategory.who_can_enroll_image, enrollImageFile);
         } else {
-          existingCategory.who_can_enroll_image = await uploadToExternalService(req.files.who_can_enroll_image[0], 'exam-category');
+          existingCategory.who_can_enroll_image = await uploadToExternalService(enrollImageFile, 'exam-category');
         }
       } else if (who_can_enroll_image !== undefined) {
         existingCategory.who_can_enroll_image = who_can_enroll_image;
+      }
+
+      if (galaxy_app_section !== undefined) {
+        let parsedGalaxySection = galaxy_app_section;
+        if (typeof galaxy_app_section === 'string') {
+          try {
+            parsedGalaxySection = JSON.parse(galaxy_app_section);
+          } catch (e) {
+            parsedGalaxySection = null;
+          }
+        }
+
+        if (parsedGalaxySection && typeof parsedGalaxySection === 'object') {
+          const processedSection = await processGalaxyAppSectionImages(
+            parsedGalaxySection,
+            req.files || []
+          );
+          existingCategory.galaxy_app_section = processedSection;
+        }
+      }
+
+      if (sample_recorded_lectures !== undefined) {
+        let parsedLectures = sample_recorded_lectures;
+        if (typeof sample_recorded_lectures === 'string') {
+          try {
+            parsedLectures = JSON.parse(sample_recorded_lectures);
+          } catch (e) {
+            parsedLectures = [];
+          }
+        }
+        if (Array.isArray(parsedLectures)) {
+          existingCategory.sample_recorded_lectures = parsedLectures;
+        }
       }
 
       const updatedCategory = await existingCategory.save();

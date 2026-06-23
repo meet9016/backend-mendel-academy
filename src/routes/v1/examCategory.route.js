@@ -22,10 +22,7 @@ router.get("/exam-category-list", catchAsync(examCategoryController.getAllExamsL
 router.get("/get-plan/:planId", catchAsync(examCategoryController.getPlanById.handler));
 router.put(
   "/update/:_id",
-  upload.fields([
-    { name: "who_can_enroll_image", maxCount: 1 },
-    { name: "image", maxCount: 1 },
-  ]),
+  upload.any(),
   validate(examCategoryController.updateExamCategory.validation),
   catchAsync(examCategoryController.updateExamCategory.handler)
 );
