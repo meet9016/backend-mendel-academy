@@ -169,6 +169,9 @@ const examListSchema = mongoose.Schema(
         flashcard_qa: [{
           question: { type: String, trim: true },
           answer: { type: String, trim: true },
+          hard_days: { type: Number, default: 1 },
+          medium_days: { type: Number, default: 3 },
+          easy_days: { type: Number, default: 7 },
         }],
         individual_price: { type: String, trim: true },
         individual_per: { type: String, trim: true },
