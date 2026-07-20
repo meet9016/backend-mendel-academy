@@ -19,10 +19,15 @@ const getCountryFromIP = require('./getCountryFromIP');
 /**
  * Returns the display currency code based on ISO country code.
  * @param {string} countryCode - 2-letter ISO country code (e.g., "IN", "US", "GB")
- * @returns {string} "INR" for India, "USD" for all others
+ * @returns {string} currency code
  */
 const getDisplayCurrency = (countryCode) => {
-    return countryCode === 'IN' ? 'INR' : 'USD';
+    const map = {
+        IN: 'INR', US: 'USD', GB: 'GBP', AU: 'AUD',
+        CA: 'CAD', SG: 'SGD', AE: 'AED', SA: 'SAR',
+        MY: 'MYR', NZ: 'NZD', QA: 'QAR', BH: 'BHD', OM: 'OMR',
+    };
+    return map[countryCode] || 'USD';
 };
 
 /**
@@ -66,7 +71,7 @@ const getUserCountryInfo = async (req) => {
     try {
         const countryCode = await getCountryFromIP(req);
         const currency = getDisplayCurrency(countryCode);
-        const country = countryCode === 'IN' ? 'India' : 'United States';
+        const country = countryCode === 'IN' ? 'India' : countryCode;
         const result = { country, countryCode, currency };
 
         return result;
