@@ -187,6 +187,10 @@ const createExamCategory = {
         ),
         Joi.string().allow(null, '')
       ).optional(),
+      usmle_step1_detail: Joi.alternatives().try(
+        Joi.object().unknown(true),
+        Joi.string().allow(null, '')
+      ).optional(),
     }),
   },
 
@@ -377,6 +381,19 @@ const getExamCategoryById = {
         return res.status(404).json({ message: "Category/Exam not found" });
 
       const selectedExam = category.exams?.[0];
+
+      // If USMLE Step 1, return only the fields needed by the USMLE Step 1 page
+      if (selectedExam?.slug === 'usmle-step-1') {
+        return res.status(200).json({
+          _id: category._id,
+          category_name: category.category_name,
+          exams: category.exams,
+          choose_plan_list: category.choose_plan_list,
+          usmle_step1_detail: category.usmle_step1_detail || {},
+          user_country: userInfo.country,
+          user_currency: userInfo.currency,
+        });
+      }
 
       let subjectInfo = null;
       console.log(selectedExam._id, 'selectedExam._id')
@@ -569,6 +586,10 @@ const updateExamCategory = {
         ),
         Joi.string().allow(null, '')
       ).optional(),
+      usmle_step1_detail: Joi.alternatives().try(
+        Joi.object().unknown(true),
+        Joi.string().allow(null, '')
+      ).optional(),
     }),
   },
 
@@ -592,6 +613,7 @@ const updateExamCategory = {
         who_can_enroll_image,
         galaxy_app_section,
         sample_recorded_lectures,
+        usmle_step1_detail,
       } = req.body;
 
       const existingCategory = await ExamCategory.findById(_id);
@@ -808,6 +830,19 @@ const updateExamCategory = {
         }
       }
 
+      if (usmle_step1_detail !== undefined) {
+        let parsedDetail = usmle_step1_detail;
+        if (typeof usmle_step1_detail === 'string') {
+          try {
+            parsedDetail = JSON.parse(usmle_step1_detail);
+          } catch (e) {
+            parsedDetail = {};
+          }
+        }
+        existingCategory.usmle_step1_detail = parsedDetail;
+        existingCategory.markModified('usmle_step1_detail');
+      }
+
       const updatedCategory = await existingCategory.save();
 
       return res.status(200).json({
@@ -852,6 +887,73 @@ const deleteExamCategory = {
   },
 };
 
+const updateStep1Detail = {
+  handler: async (req, res) => {
+    try {
+      const { _id } = req.params;
+      let category;
+      if (_id.match(/^[0-9a-fA-F]{24}$/)) {
+        category = await ExamCategory.findById(_id);
+      } else {
+        category = await ExamCategory.findOne({ "exams.slug": _id });
+      }
+
+      if (!category) {
+        return res.status(404).json({ message: "Exam category not found" });
+      }
+
+      let detail = req.body.usmle_step1_detail !== undefined ? req.body.usmle_step1_detail : req.body;
+      if (typeof detail === 'string') {
+        try {
+          detail = JSON.parse(detail);
+        } catch (e) {
+          detail = {};
+        }
+      }
+
+      category.usmle_step1_detail = detail;
+      category.markModified('usmle_step1_detail');
+
+      // Sync choose_plan_list if plans are in detail.pricing.plans
+      if (Array.isArray(detail.pricing?.plans) && detail.pricing.plans.length > 0) {
+        category.choose_plan_list = detail.pricing.plans.map((p, idx) => {
+          const numPrice = parseInt(String(p.price).replace(/[^0-9]/g, '')) || 0;
+          const months = parseInt(String(p.duration).replace(/[^0-9]/g, '')) || (idx === 0 ? 1 : idx === 1 ? 3 : idx === 2 ? 6 : idx === 3 ? 12 : 24);
+          return {
+            plan_month: months,
+            plan_type: months === 1 ? "Essential" : months === 3 ? "Standard" : months === 6 ? "Silver" : months === 12 ? "Gold" : "Platinum",
+            plan_title: p.desc || "",
+            plan_pricing_dollar: numPrice,
+            plan_pricing_inr: numPrice * 80,
+            most_popular: Boolean(p.popular),
+          };
+        });
+        category.markModified('choose_plan_list');
+      }
+
+      // Ensure no unrelated fields linger on USMLE Step 1 category document
+      category.set('who_can_enroll_title', undefined);
+      category.set('who_can_enroll_description', undefined);
+      category.set('who_can_enroll_image', undefined);
+      category.set('rapid_learning_tools', undefined);
+      category.set('galaxy_app_section', undefined);
+      category.set('sample_recorded_lectures', undefined);
+      category.set('tsunami', undefined);
+      category.set('elite_mentorship', undefined);
+
+      const updatedCategory = await category.save();
+
+      return res.status(200).json({
+        message: "USMLE Step 1 page content updated successfully",
+        data: updatedCategory,
+      });
+    } catch (err) {
+      console.error("Error updating USMLE Step 1 content:", err);
+      res.status(500).json({ message: err.message });
+    }
+  },
+};
+
 module.exports = {
   createExamCategory,
   getAllExamCategories,
@@ -859,5 +961,6 @@ module.exports = {
   getAllExamsList,
   getPlanById,
   updateExamCategory,
+  updateStep1Detail,
   deleteExamCategory,
 };

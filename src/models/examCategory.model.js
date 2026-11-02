@@ -197,6 +197,10 @@ const examListSchema = mongoose.Schema(
       strip_left: { type: String, trim: true },
       strip_right: { type: String, trim: true },
     }],
+    usmle_step1_detail: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,

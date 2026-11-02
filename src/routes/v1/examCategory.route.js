@@ -27,6 +27,11 @@ router.put(
   catchAsync(examCategoryController.updateExamCategory.handler)
 );
 
+router.put(
+  "/update-step1/:_id",
+  catchAsync(examCategoryController.updateStep1Detail.handler)
+);
+
 router.delete(
   "/delete/:_id",
   catchAsync(examCategoryController.deleteExamCategory.handler)

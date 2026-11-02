@@ -164,7 +164,43 @@ const addExamPlanToCart = {
             }
 
             // Find the specific plan
-            const plan = examCategory.choose_plan_list.id(plan_id);
+            let plan = null;
+            if (mongoose.Types.ObjectId.isValid(plan_id) && examCategory.choose_plan_list) {
+                plan = examCategory.choose_plan_list.id(plan_id);
+            }
+
+            // Fallback 1: match by plan_month / plan_day in choose_plan_list
+            if (!plan && examCategory.choose_plan_list && examCategory.choose_plan_list.length > 0) {
+                const numericPlanId = parseInt(String(plan_id).replace(/\D/g, ''), 10);
+                if (!isNaN(numericPlanId)) {
+                    plan = examCategory.choose_plan_list.find(
+                        p => p.plan_month === numericPlanId || p.plan_day === numericPlanId
+                    );
+                }
+            }
+
+            // Fallback 2: match from usmle_step1_detail.pricing.plans
+            if (!plan && examCategory.usmle_step1_detail?.pricing?.plans) {
+                const step1Plans = examCategory.usmle_step1_detail.pricing.plans;
+                const numericMonths = parseInt(String(plan_id).replace(/\D/g, ''), 10);
+                const matchedStep1Plan = step1Plans.find(p => {
+                    const m = parseInt(String(p.duration).replace(/\D/g, ''), 10);
+                    return m === numericMonths || String(p.duration).toLowerCase() === String(plan_id).toLowerCase();
+                });
+                if (matchedStep1Plan) {
+                    const priceDollar = parseFloat(String(matchedStep1Plan.price).replace(/[^0-9.]/g, '')) || 0;
+                    const priceInr = priceDollar * 80;
+                    plan = {
+                        _id: new mongoose.Types.ObjectId(),
+                        plan_type: matchedStep1Plan.duration,
+                        plan_month: numericMonths || 1,
+                        plan_pricing_dollar: priceDollar,
+                        plan_pricing_inr: priceInr,
+                        plan_sub_title: matchedStep1Plan.desc ? [matchedStep1Plan.desc] : []
+                    };
+                }
+            }
+
             if (!plan) {
                 return res.status(404).send({
                     success: false,
@@ -172,15 +208,9 @@ const addExamPlanToCart = {
                 });
             }
 
-            // ✅ CRITICAL FIX: Extract duration properly from plan_day or plan_month
-            // Convert to number and ensure it's valid
+            // Extract duration properly
             const durationValue = Number(plan.plan_month || plan.plan_day || 0);
-
-            console.log('Plan duration extraction:', {
-                plan_month: plan.plan_month,
-                plan_day: plan.plan_day,
-                final_duration: durationValue
-            });
+            const effectivePlanId = plan._id ? String(plan._id) : String(plan_id);
 
             // Calculate price based on currency
             const total_price = getPriceForCurrency(
@@ -189,7 +219,7 @@ const addExamPlanToCart = {
                 displayCurrency
             );
 
-            // ✅ REPLACE LOGIC: Check if ANY exam_plan already exists for this user
+            // ✅ REPLACE LOGIC: Check if ANY exam_plan already exists for this user in this category
             const existingPlanQuery = {
                 ...(user_id ? { user_id } : { temp_id }),
                 cart_type: 'exam_plan',
@@ -200,17 +230,17 @@ const addExamPlanToCart = {
             // If a DIFFERENT plan exists, delete it first (since only one plan allowed)
             const otherPlan = await Cart.findOne({
                 ...existingPlanQuery,
-                plan_id: { $ne: plan_id }
+                plan_id: { $ne: effectivePlanId }
             });
 
             if (otherPlan) {
-                console.log(`Replacing plan ${otherPlan.plan_id} with ${plan_id}`);
+                console.log(`Replacing plan ${otherPlan.plan_id} with ${effectivePlanId}`);
                 await Cart.deleteOne({ _id: otherPlan._id });
             }
 
             const query = {
                 ...existingPlanQuery,
-                plan_id
+                plan_id: effectivePlanId
             };
 
             let cartItem = await Cart.findOne(query);
@@ -221,20 +251,15 @@ const addExamPlanToCart = {
                 // ✅ Update existing cart item with ALL fields
                 cartItem.total_price = total_price;
                 cartItem.currency = displayCurrency;
-                cartItem.duration = String(durationValue); // Store as plain number string
+                cartItem.duration = String(durationValue);
                 cartItem.plan_details = {
-                    plan_type: plan.plan_type,
-                    plan_month: durationValue, // ✅ Store the numeric value
+                    plan_type: plan.plan_type || `${durationValue} Month Access`,
+                    plan_month: durationValue,
                     plan_pricing_dollar: plan.plan_pricing_dollar,
                     plan_pricing_inr: plan.plan_pricing_inr,
                     plan_sub_title: plan.plan_sub_title,
                 };
                 await cartItem.save();
-
-                console.log('Updated cart item:', {
-                    duration: cartItem.duration,
-                    plan_month: cartItem.plan_details.plan_month
-                });
             } else {
                 // ✅ Create new cart item with ALL fields properly set
                 cartItem = await Cart.create({
@@ -242,10 +267,10 @@ const addExamPlanToCart = {
                     user_id: user_id || null,
                     cart_type: 'exam_plan',
                     exam_category_id: actualCategoryId,
-                    plan_id,
+                    plan_id: effectivePlanId,
                     plan_details: {
-                        plan_type: plan.plan_type,
-                        plan_month: durationValue, // ✅ Store the numeric value
+                        plan_type: plan.plan_type || `${durationValue} Month Access`,
+                        plan_month: durationValue,
                         plan_pricing_dollar: plan.plan_pricing_dollar,
                         plan_pricing_inr: plan.plan_pricing_inr,
                         plan_sub_title: plan.plan_sub_title,
@@ -253,14 +278,9 @@ const addExamPlanToCart = {
                     category_name: examCategory.category_name,
                     total_price,
                     currency: displayCurrency,
-                    duration: String(durationValue), // ✅ Store as plain number string
+                    duration: String(durationValue),
                     bucket_type: true,
                     quantity: 1
-                });
-
-                console.log('Created cart item:', {
-                    duration: cartItem.duration,
-                    plan_month: cartItem.plan_details.plan_month
                 });
             }
 
@@ -763,12 +783,17 @@ const addEliteMentorshipToCart = {
             exam_category_id: Joi.string().required(),
             mentorship_id: Joi.string().required(),
             bucket_type: Joi.boolean(),
+            name: Joi.string().allow(null, "").optional(),
+            subtitle: Joi.string().allow(null, "").optional(),
+            price_usd: Joi.number().allow(null).optional(),
+            price_inr: Joi.number().allow(null).optional(),
+            type: Joi.string().allow(null, "").optional(),
         }),
     },
 
     handler: async (req, res) => {
         try {
-            const { temp_id, user_id, exam_category_id, mentorship_id } = req.body;
+            const { temp_id, user_id, exam_category_id, mentorship_id, name, subtitle, price_usd, price_inr } = req.body;
 
             const { currency: displayCurrency } = await getUserCurrencyFromReq(req);
 
@@ -791,7 +816,80 @@ const addEliteMentorshipToCart = {
             }
 
             // Find the specific mentorship
-            const mentorship = examCategory.elite_mentorship.id(mentorship_id);
+            let mentorship = null;
+
+            // 1. Check existing elite_mentorship subdocument if valid ObjectId
+            if (examCategory.elite_mentorship && mongoose.Types.ObjectId.isValid(mentorship_id)) {
+                mentorship = examCategory.elite_mentorship.id(mentorship_id);
+            }
+
+            // 2. Check USMLE Step 1 Mentorship data
+            if (!mentorship && examCategory.usmle_step1_detail?.mentorship) {
+                const mData = examCategory.usmle_step1_detail.mentorship;
+
+                // Featured mentorship
+                if (
+                    mentorship_id === 'featured' ||
+                    mentorship_id === 'usmle-step-1' ||
+                    (name && mData.featured?.name && mData.featured.name.toLowerCase() === name.toLowerCase())
+                ) {
+                    const priceDollar = parseFloat(String(mData.featured?.price || '').replace(/[^0-9.]/g, '')) || 1199;
+                    mentorship = {
+                        name: mData.featured?.name || "USMLE Step 1 Mentorship",
+                        price_usd: priceDollar,
+                        price_inr: priceDollar * 80,
+                        included_services: mData.featured?.subtitle || "High-yield group mentorship with Dr. Managoli"
+                    };
+                }
+
+                // Other courses
+                if (!mentorship && Array.isArray(mData.other_courses)) {
+                    const foundCourse = mData.other_courses.find(c =>
+                        (c.link && c.link.includes(mentorship_id)) ||
+                        (name && c.name?.toLowerCase() === name.toLowerCase()) ||
+                        c.name?.toLowerCase().includes(mentorship_id.replace(/-/g, ' ').toLowerCase())
+                    );
+                    if (foundCourse) {
+                        const priceDollar = parseFloat(String(foundCourse.price || '').replace(/[^0-9.]/g, '')) || 0;
+                        mentorship = {
+                            name: foundCourse.name,
+                            price_usd: priceDollar,
+                            price_inr: priceDollar * 80,
+                            included_services: foundCourse.badge || "Live Mentorship Course"
+                        };
+                    }
+                }
+
+                // Bundles
+                if (!mentorship && Array.isArray(mData.bundles)) {
+                    const foundBundle = mData.bundles.find(b =>
+                        (b.link && b.link.includes(mentorship_id)) ||
+                        (name && b.name?.toLowerCase() === name.toLowerCase()) ||
+                        b.name?.toLowerCase().includes(mentorship_id.replace(/-/g, ' ').toLowerCase())
+                    );
+                    if (foundBundle) {
+                        const priceDollar = parseFloat(String(foundBundle.price || '').replace(/[^0-9.]/g, '')) || 0;
+                        mentorship = {
+                            name: foundBundle.name,
+                            price_usd: priceDollar,
+                            price_inr: priceDollar * 80,
+                            included_services: foundBundle.subtitle || foundBundle.tag || "Live Mentorship Bundle"
+                        };
+                    }
+                }
+            }
+
+            // 3. Fallback directly from body params if passed by client
+            if (!mentorship && (name || price_usd)) {
+                const dollarVal = Number(price_usd) || 0;
+                mentorship = {
+                    name: name || "Mentorship Program",
+                    price_usd: dollarVal,
+                    price_inr: Number(price_inr) || (dollarVal * 80),
+                    included_services: subtitle || "Live Mentorship"
+                };
+            }
+
             if (!mentorship) {
                 return res.status(404).send({
                     success: false,
